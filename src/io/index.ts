@@ -48,7 +48,6 @@ export {
   adaptiveEn,
 } from "./classes_return.js";
 export type { Outcome } from "./classes_return.js";
-export { ComfortInterval, Measure } from "./measure.js";
-export type { MeasureInit } from "./measure.js";
+export type { ComfortInterval, Measure } from "./measure.js";
 export { quantities, unitFor } from "./quantity.js";
 export type { Quantity, QuantityKind } from "./quantity.js";

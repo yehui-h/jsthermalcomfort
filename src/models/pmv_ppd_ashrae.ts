@@ -5,12 +5,19 @@ import { validateInputs } from "../utilities/utilities.js";
 import type { ValidationSchema } from "../utilities/utilities.js";
 import type { PmvPpdKwargs, PmvPpdResult } from "./pmv_ppd.js";
 
-/**
- * @typedef {Object} PmvPpdAshrae
- * @property {number} pmv - Predicted Mean Vote on the ASHRAE 55 scale [-3, +3]
- * @property {number} ppd - Predicted Percentage of Dissatisfied [%]
- * @public
- */
+const PMV_PPD_ASHRAE_SCHEMA = {
+  tdb: { type: "number" },
+  tr: { type: "number" },
+  vr: { type: "number" },
+  rh: { type: "number" },
+  met: { type: "number" },
+  clo: { type: "number" },
+  wme: { type: "number" },
+  units: { enum: ["SI", "IP"], required: false },
+  limit_inputs: { type: "boolean", required: false },
+  airspeed_control: { type: "boolean", required: false },
+  round_output: { type: "boolean", required: false },
+} satisfies ValidationSchema;
 
 /**
  * Calculate PMV and PPD in accordance with ASHRAE 55.
@@ -27,43 +34,24 @@ import type { PmvPpdKwargs, PmvPpdResult } from "./pmv_ppd.js";
  * -  1 < met [met] < 4
  * -  0 < clo [clo] < 1.5
  *
- * @param {number} tdb - Dry-bulb air temperature [°C] (or [°F] if units = 'IP')
- * @param {number} tr  - Mean radiant temperature [°C] (or [°F] if units = 'IP')
- * @param {number} vr  - Relative air speed [m/s] (or [fps] if units = 'IP')
- * @param {number} rh  - Relative humidity [%]
- * @param {number} met - Metabolic rate [met]
- * @param {number} clo - Clothing insulation [clo]
- * @param {number} [wme=0] - External work [met]
- * @param {Object} [kwargs={}] - Optional overrides
- * @param {'SI'|'IP'} [kwargs.units='SI'] - Unit system
- * @param {boolean}   [kwargs.limit_inputs=true] - Return NaN for out-of-range inputs
- * @param {boolean}   [kwargs.airspeed_control=true] - Occupant controls airspeed
- * @param {boolean}   [kwargs.round_output=true] - Round pmv to 2 decimal places and ppd to 1
- * @returns {PmvPpdAshrae} PMV and PPD values
+ * @param tdb - Dry-bulb air temperature [°C] (or [°F] if units = 'IP')
+ * @param tr - Mean radiant temperature [°C] (or [°F] if units = 'IP')
+ * @param vr - Relative air speed [m/s] (or [fps] if units = 'IP')
+ * @param rh - Relative humidity [%]
+ * @param met - Metabolic rate [met]
+ * @param clo - Clothing insulation [clo]
+ * @param wme - External work [met]
+ * @param kwargs - Optional overrides; see {@link PmvPpdKwargs}
+ * @returns PMV and PPD values
+ *
+ * @public
+ * @category Models
  *
  * @example
  * const r = pmv_ppd_ashrae(25, 25, 0.1, 50, 1.2, 0.5);
  * console.log(r.pmv); // 0.08
  * console.log(r.ppd); // 5.1
- *
- * @public
- * @memberof models
- * @docname PMV/PPD (ASHRAE 55)
  */
-const PMV_PPD_ASHRAE_SCHEMA = {
-  tdb: { type: "number" },
-  tr: { type: "number" },
-  vr: { type: "number" },
-  rh: { type: "number" },
-  met: { type: "number" },
-  clo: { type: "number" },
-  wme: { type: "number" },
-  units: { enum: ["SI", "IP"], required: false },
-  limit_inputs: { type: "boolean", required: false },
-  airspeed_control: { type: "boolean", required: false },
-  round_output: { type: "boolean", required: false },
-} satisfies ValidationSchema;
-
 export function pmv_ppd_ashrae(
   tdb: number,
   tr: number,

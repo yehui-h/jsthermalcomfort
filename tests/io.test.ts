@@ -8,10 +8,7 @@ import {
 } from "../src/index.js";
 import {
   AdaptiveInputs,
-  ComfortInterval,
-  Measure,
   PmvPpdAshraeInputs,
-  PmvPpdInputs,
   adaptiveAshrae,
   adaptiveEn,
   pmvPpdAshrae,
@@ -243,18 +240,6 @@ describe("inputs", () => {
         }),
     ).toThrow(TypeError);
   });
-
-  it("accepts an already-validated inputs object", () => {
-    const inputs = new PmvPpdInputs({
-      tdb: 25,
-      tr: 25,
-      vr: 0.1,
-      rh: 50,
-      met: 1.2,
-      clo: 0.5,
-    });
-    expect(pmvPpdIso(inputs).inputs).toBe(inputs);
-  });
 });
 
 describe("classification", () => {
@@ -336,7 +321,7 @@ describe("ASHRAE compliance", () => {
   it("reports the band it used", () => {
     const [pmv] = pmvPpdAshrae(base).toMeasures();
     expect(pmv!.intervals).toEqual([
-      new ComfortInterval("Compliant", -0.5, 0.5, true),
+      { label: "Compliant", low: -0.5, high: 0.5, satisfied: true },
     ]);
   });
 });
@@ -465,6 +450,13 @@ describe("units", () => {
     expect(measures[0]!.unit).toBe("");
     expect(measures[1]!.unit).toBe("%");
     expect(measures[0]!.quantity).toBe(quantities.pmv);
-    expect(measures[0]).toBeInstanceOf(Measure);
+    // `Measure` is a plain shape, not a class, so assert the shape.
+    expect(Object.keys(measures[0]!).sort()).toEqual([
+      "category",
+      "intervals",
+      "quantity",
+      "unit",
+      "value",
+    ]);
   });
 });

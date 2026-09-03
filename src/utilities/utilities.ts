@@ -6,9 +6,9 @@ export { round };
 /**
  * Converts degrees to radians
  *
- * @param {number} degrees
+ * @param degrees
  *
- * @returns {number} - radians
+ * @returns radians
  */
 function degrees_to_radians(degrees: number): number {
   return degrees * (Math.PI / 180);
@@ -17,9 +17,9 @@ function degrees_to_radians(degrees: number): number {
 /**
  * Converts radians to degree unit
  *
- * @param {number} radians
+ * @param radians
  *
- * @returns {number} - degrees
+ * @returns degrees
  */
 function radians_to_degrees(radians: number): number {
   return radians * (180 / Math.PI);
@@ -27,9 +27,9 @@ function radians_to_degrees(radians: number): number {
 
 /**
  * Converts sharp and altittude from radians to degree unit
- * @param {number} sharp
- * @param {number} altitude
- * @returns {[number, number]}
+ * @param sharp
+ * @param altitude
+ * @returns
  */
 export function transpose_sharp_altitude(
   sharp: number,
@@ -86,10 +86,10 @@ export type Standard = (typeof Standard)[keyof typeof Standard];
 /**
  * Check that the values comply with the standard provided
  *
- * @param {Standard} standard
- * @param {ComplianceKwargs} kwargs
+ * @param standard
+ * @param kwargs
  *
- * @returns {string[]} strings with warnings emitted
+ * @returns strings with warnings emitted
  */
 export function check_standard_compliance(
   standard: Standard,
@@ -133,9 +133,9 @@ function _ankle_draft_compliance(kwargs: ComplianceKwargs): string[] {
 }
 
 /**
- * @param {ComplianceKwargs} kwargs
+ * @param kwargs
  *
- * @returns {string[]} strings with warnings emitted
+ * @returns strings with warnings emitted
  */
 function _ashrae_compliance(kwargs: ComplianceKwargs): string[] {
   const warnings: string[] = [];
@@ -262,9 +262,9 @@ function _fan_heatwaves_compliance(kwargs: ComplianceKwargs): string[] {
 }
 
 /**
- * @param {ComplianceKwargs} kwargs
+ * @param kwargs
  *
- * @returns {string[]} strings with warnings emitted
+ * @returns strings with warnings emitted
  */
 function _iso_compliance(kwargs: ComplianceKwargs): string[] {
   const warnings: string[] = [];
@@ -394,10 +394,10 @@ export type BodySurfaceAreaFormula =
  * @public
  * @category Utilities
  *
- * @param {number} weight - body weight, [kg]
- * @param {number} height - height, [m]
- * @param {("dubois" | "takahira" | "fujimoto" | "kurazumi")} [formula="dubois"] - formula used to calculate the body surface area. default="dubois"
- * @returns {number} body surface area, [m2]
+ * @param weight - body weight, [kg]
+ * @param height - height, [m]
+ * @param [formula="dubois"] - formula used to calculate the body surface area. default="dubois"
+ * @returns body surface area, [m2]
  *
  * @category Utilities
  */
@@ -429,9 +429,9 @@ export function body_surface_area(
  * @public
  * @category Utilities
  *
- * @param {number} v - air spped measured by the sensor, [m/s]
- * @param {number} met - metabolic rate, [met]
- * @returns {number} relative air speed, [m/s]
+ * @param v - air spped measured by the sensor, [m/s]
+ * @param met - metabolic rate, [met]
+ * @returns relative air speed, [m/s]
  */
 export function v_relative(v: number, met: number): number {
   if (met <= 1) return v;
@@ -439,9 +439,10 @@ export function v_relative(v: number, met: number): number {
 }
 
 /**
- * @param {number} v
- * @param {number} met
- * @returns {number}
+ * Not `round(x, 3)` from `./round.js`: this adds `Number.EPSILON` before
+ * scaling, which nudges a value sitting exactly on a .0005 boundary up rather
+ * than letting the binary representation decide. The two disagree on those
+ * boundaries and `tests/baseline.test.ts` pins this one, so it stays.
  */
 function _v_relative_single(v: number, met: number): number {
   return Math.round((v + 0.3 * (met - 1) + Number.EPSILON) * 1000) / 1000;
@@ -461,10 +462,10 @@ export type ClothingStandard = "ASHRAE" | "ISO";
  * @public
  * @category Utilities
  *
- * @param {number} clo - clothing insulation, [clo]
- * @param {number} met - metabolic rate, [met]
- * @param {("ASHRAE" | "ISO")} [standard="ASHRAE"] - If "ASHRAE", uses Equation provided in Section 5.2.2.2 of ASHRAE 55 2020
- * @returns {number} dunamic clothing insulation, [clo]
+ * @param clo - clothing insulation, [clo]
+ * @param met - metabolic rate, [met]
+ * @param [standard="ASHRAE"] - If "ASHRAE", uses Equation provided in Section 5.2.2.2 of ASHRAE 55 2020
+ * @returns dunamic clothing insulation, [clo]
  */
 export function clo_dynamic(
   clo: number,
@@ -480,11 +481,7 @@ export function clo_dynamic(
   return _clo_dynamic_single(clo, met);
 }
 
-/**
- * @param {number} clo
- * @param {number} met
- * @returns {number}
- */
+/** Same `Number.EPSILON` rounding as `_v_relative_single`, and same reason. */
 function _clo_dynamic_single(clo: number, met: number): number {
   return Math.round((clo * (0.6 + 0.4 / met) + Number.EPSILON) * 1000) / 1000;
 }
@@ -493,109 +490,68 @@ function _clo_dynamic_single(clo: number, met: number): number {
 export type UnitSystem = "IP" | "SI";
 
 /**
+ * The IP/SI conversion for every quantity `units_converter` recognises, paired
+ * with the field-name test that selects it. First match wins, exactly as the
+ * original if/else chain did.
+ *
+ * The formulae are written character for character as they were before:
+ * `tests/baseline.test.ts` pins this function's output byte for byte, so the
+ * evaluation order inside each expression is part of the contract, not a
+ * style choice.
+ */
+const CONVERSIONS: readonly {
+  readonly matches: (key: string) => boolean;
+  readonly ipToSi: (value: number) => number;
+  readonly siToIp: (value: number) => number;
+}[] = [
+  {
+    matches: (key) => key.includes("tmp") || key === "tr" || key === "tdb",
+    ipToSi: (temp) => ((temp - 32) * 5) / 9,
+    siToIp: (temp) => (temp * 9) / 5 + 32,
+  },
+  {
+    matches: (key) => key === "v" || key === "vr" || key === "vel",
+    ipToSi: (vel) => vel / 3.281,
+    siToIp: (vel) => vel * 3.281,
+  },
+  {
+    matches: (key) => key === "area",
+    ipToSi: (area) => area / 10.764,
+    siToIp: (area) => area * 10.764,
+  },
+  {
+    matches: (key) => key === "pressure",
+    ipToSi: (pressure) => pressure * 101325,
+    siToIp: (pressure) => pressure / 101325,
+  },
+];
+
+/**
  * Converts IP values to SI units
+ *
+ * @param kwargs - [t, v] units to convert
+ * @param from_units - specify system to convert from
+ * @returns converted values in SI units
  *
  * @category Utilities
  * @public
- *
- * @template {Object.<string, number>} T
- * @param {T} kwargs - [t, v] units to convert
- * @param {"IP" | "SI"} [from_units="IP"] - specify system to convert from
- * @returns {T} converted values in SI units
- *
  */
 export function units_converter<T extends Record<string, number>>(
   kwargs: T,
   from_units: UnitSystem = "IP",
 ): T {
-  const result: Record<string, number> = { ...kwargs };
-  if (from_units === "IP") {
-    for (const [key, value] of Object.entries(result)) {
-      if (key.includes("tmp") || key === "tr" || key === "tdb")
-        result[key] = _temp_ip_to_si(value);
-      else if (key === "v" || key === "vr" || key === "vel")
-        result[key] = _vel_ip_to_si(value);
-      else if (key === "area") result[key] = _area_ip_to_si(value);
-      else if (key === "pressure") result[key] = _pressure_ip_to_si(value);
-    }
-  } else if (from_units === "SI") {
-    for (const [key, value] of Object.entries(result)) {
-      if (key.includes("tmp") || key === "tr" || key === "tdb")
-        result[key] = _temp_si_to_ip(value);
-      else if (key === "v" || key === "vr" || key === "vel")
-        result[key] = _vel_si_to_ip(value);
-      else if (key === "area") result[key] = _area_si_to_ip(value);
-      else if (key === "pressure") result[key] = _pressure_si_to_ip(value);
-    }
-  } else {
+  // Unreachable from TypeScript, but `units_converter` is called from untyped
+  // JavaScript too, so the runtime guard stays.
+  if (from_units !== "IP" && from_units !== "SI")
     throw new Error(`Unknown system ${from_units}`);
+
+  const direction = from_units === "IP" ? "ipToSi" : "siToIp";
+  const result: Record<string, number> = { ...kwargs };
+  for (const [key, value] of Object.entries(result)) {
+    const conversion = CONVERSIONS.find(({ matches }) => matches(key));
+    if (conversion !== undefined) result[key] = conversion[direction](value);
   }
-
   return result as T;
-}
-
-/**
- * @param {number} pressure
- * @returns {number}
- */
-function _pressure_ip_to_si(pressure: number): number {
-  return pressure * 101325;
-}
-
-/**
- * @param {number} pressure
- * @returns {number}
- */
-function _pressure_si_to_ip(pressure: number): number {
-  return pressure / 101325;
-}
-
-/**
- * @param {number} area
- * @returns {number}
- */
-function _area_ip_to_si(area: number): number {
-  return area / 10.764;
-}
-
-/**
- * @param {number} area
- * @returns {number}
- */
-function _area_si_to_ip(area: number): number {
-  return area * 10.764;
-}
-
-/**
- * @param {number} vel
- * @returns {number}
- */
-function _vel_ip_to_si(vel: number): number {
-  return vel / 3.281;
-}
-
-/**
- * @param {number} vel
- * @returns {number}
- */
-function _vel_si_to_ip(vel: number): number {
-  return vel * 3.281;
-}
-
-/**
- * @param {number} temp
- * @returns {number}
- */
-function _temp_ip_to_si(temp: number): number {
-  return ((temp - 32) * 5) / 9;
-}
-
-/**
- * @param {number} temp
- * @returns {number}
- */
-function _temp_si_to_ip(temp: number): number {
-  return (temp * 9) / 5 + 32;
 }
 
 // FIXME: find how to write math notation inside JSDocs
@@ -606,21 +562,21 @@ function _temp_si_to_ip(temp: number): number {
  * @public
  * @category Utilities
  *
- * @param {number[]} temp_array - array containing the mean daily temperature in descending order (i.e. from
+ * @param temp_array - array containing the mean daily temperature in descending order (i.e. from
  * newest/yestedayr to oldest) :math:`[t_{day-1}, t_{day-2}, ... , t_{day-n}]`,
  * Where :math:`t_{day-1}` is yesterday's daily mean temperature. The EN
  * 16798-1 2019 [3] states that n should be equal to 7
  *
- * @param {number} [alpha=0.8] - constant between 0 and 1. The EN 16798-1 2019 [3] recommends a value of 0.8,
+ * @param [alpha=0.8] - constant between 0 and 1. The EN 16798-1 2019 [3] recommends a value of 0.8,
  * while the ASHRAE 55 2020 recommends to choose values between 0.9 and 0.6,
  * corresponding to a slow- and fast- response running mean, respectively.
  * Adaptive comfort theory suggest that a slow-response running mean (alpha = 0.9)
  * could be more appropriate for climates in which synoptic-scale (day-to-day)
  * temperature dynamics are relatively minor, sich as the humid tropics.
  *
- * @param {"IP" | "SI"} [units="SI"] - select the SI (International System of Units) or the IP (Imperial Units) system.
+ * @param [units="SI"] - select the SI (International System of Units) or the IP (Imperial Units) system.
  *
- * @returns {number} running mean outdoor temperature
+ * @returns running mean outdoor temperature
  */
 export function running_mean_outdoor_temperature(
   temp_array: number[],
@@ -647,11 +603,11 @@ export function running_mean_outdoor_temperature(
  * @public
  * @category Utilities
  *
- * @param {number} w - width of the window, [m]
- * @param {number} h - height of the window, [m]
- * @param {number} d - distance between the occupant and the window, [m]
+ * @param w - width of the window, [m]
+ * @param h - height of the window, [m]
+ * @param d - distance between the occupant and the window, [m]
  *
- * @returns {number} sky-vault view faction ranges between 0 and 1
+ * @returns sky-vault view faction ranges between 0 and 1
  */
 export function f_svv(w: number, h: number, d: number): number {
   const h_degrees = Math.atan(h / (2 * d)) * (180 / Math.PI);
@@ -662,9 +618,9 @@ export function f_svv(w: number, h: number, d: number): number {
 /**
  * Filter values based on a valid range (It turns the filtered values to NaNs)
  *
- * @param {number[]} [range] - the range to limit
- * @param {[number, number]} valid - the [min, max] to constrian the range to
- * @returns {number[]} the constrained range with NaNs for values that are outside the min, max range
+ * @param [range] - the range to limit
+ * @param valid - the [min, max] to constrian the range to
+ * @returns the constrained range with NaNs for values that are outside the min, max range
  */
 export function valid_range(
   range: number[] | undefined,
@@ -676,40 +632,10 @@ export function valid_range(
 
 /**
  * Met values of typical tasks.
+ *
  * @public
  * @category Reference values
- * @type {Object}
- * @property {number} Sleeping - 0.7
- * @property {number} Reclining - 0.8
- * @property {number} Seated_Cquiet - 1.0
- * @property {number} Reading_seated - 1.0
- * @property {number} Writing - 1.0
- * @property {number} Reading_seatedTyping - 1.1
- * @property {number} Standing_relaxed - 1.2
- * @property {number} Filing_seated - 1.2
- * @property {number} Flying_aircraft_routine - 1.2
- * @property {number} Filing_standing - 1.4
- * @property {number} Driving_a_car - 1.5
- * @property {number} Walking_about - 1.7
- * @property {number} Cooking - 1.8
- * @property {number} Table_sawing - 1.8
- * @property {number} Walking_2mph_3_2kmh - 2.0
- * @property {number} Lifting_packing - 2.1
- * @property {number} Seated_heavy_limb_movement - 2.2
- * @property {number} Light_machine_work - 2.2
- * @property {number} Flying_aircraft_combat - 2.4
- * @property {number} Walking_3mph_4_8kmh - 2.6
- * @property {number} House_cleaning - 2.7
- * @property {number} Driving_heavy_vehicle - 3.2
- * @property {number} Dancing - 3.4
- * @property {number} Calisthenics - 3.5
- * @property {number} Walking_4mph_6_4kmh - 3.8
- * @property {number} Tennis - 3.8
- * @property {number} Heavy_machine_work - 4.0
- * @property {number} Handling_100lb_45_kg_bags - 4.0
- * @property {number} Pick_and_shovel_work - 4.4
- * @property {number} Basketball - 6.3
- * @property {number} Wrestling - 7.8
+ *
  * @example
  * import { met_typical_tasks } from "jsthermalcomfort/utilities"; //The path to utilities
  * console.log(met_typical_tasks['Seated_Cquiet']);
@@ -749,30 +675,6 @@ export const met_typical_tasks = {
   Wrestling: 7.8,
 };
 
-/**
- * Total Clothing insulation of typical ensembles
- * @public
- * @category Reference values
- *
- * @param {"Walking shorts, short-sleeve shirt" | "Typical summer indoor clothing" |
- * "Knee-length skirt, short-sleeve shirt, sandals, underwear" | "Trousers, long-sleeve shirt" |
- * "Knee-length skirt, long-sleeve shirt, full slip" | "Sweat pants, long-sleeve sweatshirt" |
- * "Jacket, Trousers, long-sleeve shirt" | "Typical winter indoor clothing"} ensembles - Typical ensembles. One of:
- *   - "Walking shorts, short-sleeve shirt"
- *   - "Typical summer indoor clothing"
- *   - "Knee-length skirt, short-sleeve shirt, sandals, underwear"
- *   - "Trousers, short-sleeve shirt, socks, shoes, underwear"
- *   - "Trousers, long-sleeve shirt"
- *   - "Knee-length skirt, long-sleeve shirt, full slip"
- *   - "Sweat pants, long-sleeve sweatshirt"
- *   - "Jacket, Trousers, long-sleeve shirt"
- *   - "Typical winter indoor clothing"
- *
- * @returns {number} - Clothing insulation of the given ensembles
- * @example
- * const result = clo_typical_ensembles("Trousers, long-sleeve shirt"); // returns 0.61
- */
-
 /** Ensembles recognised by {@link clo_typical_ensembles}. */
 export type ClothingEnsemble =
   | "Walking shorts, short-sleeve shirt"
@@ -785,6 +687,27 @@ export type ClothingEnsemble =
   | "Jacket, Trousers, long-sleeve shirt"
   | "Typical winter indoor clothing";
 
+/**
+ * Total Clothing insulation of typical ensembles
+ *
+ * @param ensembles - Typical ensembles. One of:
+ *   - "Walking shorts, short-sleeve shirt"
+ *   - "Typical summer indoor clothing"
+ *   - "Knee-length skirt, short-sleeve shirt, sandals, underwear"
+ *   - "Trousers, short-sleeve shirt, socks, shoes, underwear"
+ *   - "Trousers, long-sleeve shirt"
+ *   - "Knee-length skirt, long-sleeve shirt, full slip"
+ *   - "Sweat pants, long-sleeve sweatshirt"
+ *   - "Jacket, Trousers, long-sleeve shirt"
+ *   - "Typical winter indoor clothing"
+ * @returns Clothing insulation of the given ensembles
+ *
+ * @public
+ * @category Reference values
+ *
+ * @example
+ * const result = clo_typical_ensembles("Trousers, long-sleeve shirt"); // returns 0.61
+ */
 export function clo_typical_ensembles(ensembles: ClothingEnsemble): number {
   switch (ensembles) {
     case "Walking shorts, short-sleeve shirt":
@@ -812,65 +735,10 @@ export function clo_typical_ensembles(ensembles: ClothingEnsemble): number {
 
 /**
  * Clo values of individual clothing elements. To calculate the total clothing insulation you need to add these values together.
+ *
  * @public
  * @category Reference values
- * @type {Object}
- * @property {number} Metal_chair - 0.0
- * @property {number} Bra - 0.01
- * @property {number} Wooden_stool - 0.01
- * @property {number} Ankle_socks - 0.02
- * @property {number} Shoes_or_sandals - 0.02
- * @property {number} Slippers - 0.03
- * @property {number} Panty_hose - 0.02
- * @property {number} Calf_length_socks - 0.03
- * @property {number} Women_underwear - 0.03
- * @property {number} Men_underwear - 0.04
- * @property {number} Knee_socks_thick - 0.06
- * @property {number} Short_shorts - 0.06
- * @property {number} Walking_shorts: 0.08,
- * @property {number} T_shirt - 0.08
- * @property {number} Standard_office_chair - 0.1
- * @property {number} Executive_chair - 0.15
- * @property {number} Boots - 0.1
- * @property {number} Sleeveless_scoop_neck_blouse - 0.12
- * @property {number} Half_slip - 0.14
- * @property {number} Long_underwear_bottoms - 0.15
- * @property {number} Full_slip - 0.16
- * @property {number} Short_sleeve_knit_shirt - 0.17
- * @property {number} Sleeveless_vest_thin - 0.1
- * @property {number} Sleeveless_vest_thick - 0.17
- * @property {number} Sleeveless_short_gown_thin - 0.18
- * @property {number} Short_sleeve_dress_shirt - 0.19
- * @property {number} Sleeveless_long_gown_thin - 0.2
- * @property {number} Long_underwear_top - 0.2
- * @property {number} Thick_skirt - 0.23
- * @property {number} Long_sleeve_dress_shirt - 0.25
- * @property {number} Long_sleeve_flannel_shirt - 0.34
- * @property {number} Long_sleeve_sweat_shirt - 0.34
- * @property {number} Short_sleeve_hospital_gown - 0.31
- * @property {number} Short_sleeve_short_robe_thin - 0.34
- * @property {number} Short_sleeve_pajamas - 0.42
- * @property {number} Long_sleeve_long_gown - 0.46
- * @property {number} Long_sleeve_short_wrap_robe_thick - 0.48
- * @property {number} Long_sleeve_pajamas_thick - 0.57
- * @property {number} Long_sleeve_long_wrap_robe_thick - 0.69
- * @property {number} Thin_trousers - 0.15
- * @property {number} Thick_trousers - 0.24
- * @property {number} Sweatpants - 0.28
- * @property {number} Overalls - 0.3
- * @property {number} Coveralls - 0.49
- * @property {number} Thin_skirt - 0.14
- * @property {number} Long_sleeve_shirt_dress_thin - 0.33
- * @property {number} Long_sleeve_shirt_dress_thick - 0.47
- * @property {number} Short_sleeve_shirt_dress - 0.29
- * @property {number} Sleeveless_scoop_neck_shirt_thin - 0.23
- * @property {number} Sleeveless_scoop_neck_shirt_thick - 0.27
- * @property {number} Long_sleeve_shirt_thin - 0.25
- * @property {number} Long_sleeve_shirt_thick - 0.36
- * @property {number} Single_breasted_coat_thin - 0.36
- * @property {number} Single_breasted_coat_thick - 0.44
- * @property {number} Double_breasted_coat_thin - 0.42
- * @property {number} Double_breasted_coat_thick - 0.48
+ *
  * @example
  * import { clo_individual_garments } from "jsthermalcomfort/utilities"; //The path to utilities
  * console.log(clo_individual_garments['Metal_chair']);
@@ -942,9 +810,6 @@ export interface ValidationRule {
   type?: "number" | "boolean";
   enum?: readonly unknown[];
   required?: boolean;
-  min?: number;
-  max?: number;
-  exclusiveMin?: number;
 }
 
 /** Schema mapping parameter names to their {@link ValidationRule}. */
@@ -954,8 +819,8 @@ export type ValidationSchema = Record<string, ValidationRule>;
  * Asserts that a value is a valid number (not NaN).
  * Throws a TypeError if the value is not a number or is NaN.
  *
- * @param {*} value - the value to check
- * @param {string} name - the parameter name, used in the error message
+ * @param value - the value to check
+ * @param name - the parameter name, used in the error message
  * @throws {TypeError} if value is not a number or is NaN
  */
 export const assertNumber = (value: unknown, name: string): void => {
@@ -967,8 +832,8 @@ export const assertNumber = (value: unknown, name: string): void => {
 /**
  * Validates model input parameters against a schema.
  *
- * @param {object} params - The input parameters as key-value pairs
- * @param {object} schema - Validation rules per parameter:
+ * @param params - The input parameters as key-value pairs
+ * @param schema - Validation rules per parameter:
  *   - `type: "number"`  — calls assertNumber (throws TypeError if invalid)
  *   - `type: "boolean"` — throws TypeError if value is not a boolean
  *   - `enum: [...]`     — throws Error if value not in the list
@@ -1007,24 +872,6 @@ export const validateInputs = (
           `"${key}" must be one of: ${rules.enum.map((v) => `'${v}'`).join(", ")}`,
         );
       }
-    }
-    if (rules.min !== undefined && (value as number) < rules.min) {
-      throw new RangeError(
-        `Parameter "${key}" must be >= ${rules.min}, got ${value}`,
-      );
-    }
-    if (rules.max !== undefined && (value as number) > rules.max) {
-      throw new RangeError(
-        `Parameter "${key}" must be <= ${rules.max}, got ${value}`,
-      );
-    }
-    if (
-      rules.exclusiveMin !== undefined &&
-      (value as number) <= rules.exclusiveMin
-    ) {
-      throw new RangeError(
-        `Parameter "${key}" must be > ${rules.exclusiveMin}, got ${value}`,
-      );
     }
   }
 };

@@ -133,6 +133,22 @@ describe("validateResult — numeric comparison", () => {
   });
 });
 
+describe("validateResult — default tolerance with an empty tolerances object", () => {
+  // `undefined` short-circuits the guard on its left operand; `{}` reaches the
+  // right one. Both must fall back to the 0.0001 default.
+  test("passes just inside the default tolerance", () => {
+    expect.hasAssertions();
+    expect(() =>
+      validateResult({ a: 25.50005 }, { a: 25.5 }, {}, {}),
+    ).not.toThrow();
+  });
+
+  test("throws just outside the default tolerance", () => {
+    expect.hasAssertions();
+    expect(() => validateResult({ a: 25.5002 }, { a: 25.5 }, {}, {})).toThrow();
+  });
+});
+
 describe("validateResult — array comparison", () => {
   test("passes element-wise within tolerance", () => {
     expect.hasAssertions();
@@ -171,6 +187,20 @@ describe("validateResult — array comparison", () => {
     expect.hasAssertions();
     expect(() =>
       validateResult({ a: 1.0 }, { a: [1.0] }, { a: 0.001 }, {}),
+    ).toThrow();
+  });
+
+  test("throws when a same-length array has one element out of tolerance", () => {
+    expect.hasAssertions();
+    // The length guards above cannot catch this: only the per-element numeric
+    // comparison can, so it needs its own case.
+    expect(() =>
+      validateResult(
+        { a: [25.5, 27.0] },
+        { a: [25.50001, 26.59999] },
+        { a: 0.001 },
+        {},
+      ),
     ).toThrow();
   });
 });

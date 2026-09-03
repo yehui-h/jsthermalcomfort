@@ -139,13 +139,13 @@ function bandsFrom(
  * {@link adaptiveAshraeOffsets}. Under elevated air speed the upper boundary
  * gains the vertical step the CBE tool draws at 25 °C operative.
  *
+ * @public
+ *
  * @example
  * import { charts } from "jsthermalcomfort";
  *
  * const [eighty] = charts.adaptiveAshraeZone();
  * eighty.upper; // two points: the boundary at trm = 10 and at trm = 36
- *
- * @public
  */
 export function adaptiveAshraeZone(
   options: AdaptiveZoneOptions = {},

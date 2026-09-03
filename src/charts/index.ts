@@ -32,5 +32,8 @@ export type {
   AdaptivePoint,
   AdaptiveZoneOptions,
 } from "./adaptive_zone.js";
-export { NO_ROOT_FOUND, bisect, secant } from "./root_finding.js";
-export type { SecantOptions } from "./root_finding.js";
+// Only the sentinel is public: it turns up in `psychrometricZone`'s own output
+// (`unsolved[].db`, and the edge points of an unsolved row), so a consumer needs
+// it to read the result. `bisect` and `secant` are the machinery behind that
+// call and stay internal to the module.
+export { NO_ROOT_FOUND } from "./root_finding.js";

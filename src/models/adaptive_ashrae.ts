@@ -31,6 +31,16 @@ export interface AdaptiveAshraeResult {
   acceptability_90: boolean;
 }
 
+const ADAPTIVE_ASHRAE_SCHEMA = {
+  tdb: { type: "number" },
+  tr: { type: "number" },
+  t_running_mean: { type: "number" },
+  v: { type: "number" },
+  units: { enum: ["SI", "IP"] },
+  limit_inputs: { type: "boolean" },
+  round_output: { type: "boolean", required: false },
+} satisfies ValidationSchema;
+
 /**
  * Determines the adaptive thermal comfort based on ASHRAE 55. The adaptive
  * model relates indoor design temperatures or acceptable temperature ranges
@@ -38,33 +48,36 @@ export interface AdaptiveAshraeResult {
  * can only be used in occupant-controlled naturally conditioned spaces that
  * meet all the following criteria:
  *
- * - There is no mechianical cooling or heating system in operation
+ * - There is no mechanical cooling or heating system in operation
  * - Occupants have a metabolic rate between 1.0 and 1.5 met
  * - Occupants are free to adapt their clothing within a range as wide as 0.5 and 1.0 clo
- * - The prevailing mean (runnin mean) outdoor temperature is between 10 and 33.5 °C
+ * - The prevailing mean (running mean) outdoor temperature is between 10 and 33.5 °C
  *
+ * Use it to calculate whether your conditions fall within the adaptive thermal
+ * comfort region. Calculations comply with the ASHRAE 55 2020 Standard [1].
+ *
+ * The ASHRAE 55 2020 limits are 10 < tdb [°C] < 40, 10 < tr [°C] < 40,
+ * 0 < vr [m/s] < 2, 10 < t running mean [°C] < 33.5.
+ *
+ * @param tdb - dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'
+ * @param tr - mean radiant temperature, default in [°C] in [°F] if `units` = 'IP'
+ * @param t_running_mean - running mean temperature, default in [°C] in [°F] if
+ * `units` = 'IP'. It can be calculated with
+ * {@link running_mean_outdoor_temperature}.
+ * @param v - air speed, default in [m/s] in [fps] if `units` = 'IP'
+ * @param units - select the SI (International System of Units) or the IP (Imperial Units) system.
+ * @param limit_inputs - By default, if the inputs are outside the standard
+ * applicability limits the function returns NaN. If false returns values even
+ * if the inputs are outside the applicability limits of the model.
+ * @param round_output - if true, rounds `t_cmf` to one decimal place in SI
+ * before the bounds are derived; if false, returns the unrounded values. Under
+ * `units = 'IP'` the rounded SI value is then converted to °F, so IP outputs
+ * carry the additional decimals from the °C-to-°F conversion.
+ *
+ * @returns set containing results for the model
  *
  * @public
  * @category Models
- *
- * @param {number} tdb - dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'
- * @param {number} tr - mean radiant temperature, default in [°C] in [°F] if `units` = 'IP'
- * @param {number} t_running_mean - running mean temperature, default in [°C] in [°C] in [°F] if `units` = 'IP'
- * The running mean temperature can be calculated using the function {@link #running_mean_outdoor_temperature|running_mean_outdoor_temperature}
- * @param {number} v - air speed, default in [m/s] in [fps] if `units` = 'IP'
- * @param {"SI" | "IP"} units - select the SI (International System of Units) or the IP (Imperial Units) system.
- * @param {boolean} limit_inputs - By default, if the inputs are outsude the standard applicability limits the
- * function returns nan. If False returns pmv and ppd values even if input values are
- * outside the applicability limits of the model.
- * @param {boolean} [round_output=true] - if true, rounds `t_cmf` to one decimal place in SI before bounds are derived; if false, returns the unrounded values. Under `units = 'IP'` the rounded SI value is then converted to °F, so IP outputs carry the additional decimals from the °C-to-°F conversion.
- *
- * @returns {AdaptiveAshraeResult} set containing results for the model
- *
- * The ASHRAE 55 2020 limits are 10 < tdb [°C] < 40, 10 < tr [°C] < 40,
- * 0 < vr [m/s] < 2, 10 < t running mean [°C] < 33.5
- *
- * You can use this function to calculate if your conditions are within the `adaptive thermal comfort region`.
- * Calculations with comply with the ASHRAE 55 2020 Standard [1].
  *
  * @example
  * import { adaptive_ashrae } from "jsthermalcomfort/models";
@@ -93,16 +106,6 @@ export interface AdaptiveAshraeResult {
  * // The adaptive thermal comfort model can only be used
  * // if the running mean temperature is higher than 10°C
  */
-const ADAPTIVE_ASHRAE_SCHEMA = {
-  tdb: { type: "number" },
-  tr: { type: "number" },
-  t_running_mean: { type: "number" },
-  v: { type: "number" },
-  units: { enum: ["SI", "IP"] },
-  limit_inputs: { type: "boolean" },
-  round_output: { type: "boolean", required: false },
-} satisfies ValidationSchema;
-
 export function adaptive_ashrae(
   tdb: number,
   tr: number,

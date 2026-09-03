@@ -7,9 +7,6 @@ export default tseslint.config(
     ignores: [
       "lib/**",
       "docs/**",
-      // Vendored third-party browser bundles (bootstrap, fontawesome, sphinx
-      // theme). The whole directory is replaced by typedoc in P4.
-      "docs_theme/**",
       "coverage/**",
       // build-time node10 resolution stubs
       "models/**",

@@ -5,10 +5,12 @@ import {
   NO_ROOT_FOUND,
   adaptiveAshraeZone,
   adaptiveEnZone,
-  bisect,
   psychrometricZone,
-  secant,
 } from "../src/charts/index.js";
+// `bisect` and `secant` are module-internal: they exist to serve
+// `psychrometricZone`, so they are not on the package's public surface. These
+// are white-box tests of the solvers themselves, hence the deep import.
+import { bisect, secant } from "../src/charts/root_finding.js";
 import type { PmvPpdStandard } from "../src/models/index.js";
 
 // The chart module's claim is that it reproduces the geometry the CBE Thermal

@@ -7,55 +7,6 @@ import {
 } from "../utilities/utilities.js";
 import type { UnitSystem, ValidationSchema } from "../utilities/utilities.js";
 
-/**
- * @typedef {Object} SetTmpResult
- * @property {number} set - Standard effective temperature in array, [°C]
- * @public
- */
-
-/**
- * @typedef {Object} SetTmpKwargs - a keywords argument set containing the additional arguments for Standard Effective Temperature calculation
- * @property {boolean} [round=true] - round the result of the SET
- * @property {boolean} [calculate_ce=false] - select if SET is used to calculate Cooling Effect
- * @public
- */
-
-/**
- * @typedef {Object} SetTmpKwargsRequired
- * @property {boolean} round
- * @property {boolean} calculate_ce
- */
-/**
- * Calculates the Standard Effective Temperature (SET). The SET is the
- * temperature of a hypothetical isothermal environment at 50% (rh),
- * <0.1 m/s (20 fpm) average air speed (v), and tr = tdb, in which the
- * total heat loss from the skin of an imaginary occupant wearing
- * clothing, standardized for the activity concerned is the same as
- * that from a person in the actual environment with actual clothing
- * and activity level {@link #ref_10|[10]}.
- * @public
- * @memberof models
- * @docname Standard Effective Temperature (SET)
- *
- *
- * @param {number} tdb Dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'.
- * @param {number} tr Mean radiant temperature, default in [°C]
- * @param {number} v Air speed, default in [m/s]
- * @param {number} rh Relative humidity, [%].
- * @param {number} met Metabolic rate, [W/(m2)]
- * @param {number} clo Clothing insulation, [clo]
- * @param {number} [wme=0] External work, [W/(m2)] default 0
- * @param {number} [body_surface_area] Body surface area, default value 1.8258 [m2] in [ft2] if units = ‘IP’
- * @param {number} [p_atm] Atmospheric pressure, default value 101325 [Pa] in [atm] if units = ‘IP’
- * @param {"standing" | "sitting"} [body_position="standing"] Select either “sitting” or “standing”
- * @param {"SI" | "IP"} [units="SI"] Select the SI (International System of Units) or the IP (Imperial Units) system.
- * @param {boolean} [limit_inputs=true] By default, if the inputs are outsude the following limits the function returns nan. If False returns values regardless of the input values.
- * @param {SetTmpKwargs} [kwargs]
- * @returns {SetTmpResult} set containing results for the model
- *
- * @example
- * const set = set_tmp(25, 25, 0.1, 50, 1.2, 0.5); // returns {set: 24.3}
- */
 const SET_TMP_SCHEMA = {
   tdb: { type: "number" },
   tr: { type: "number" },
@@ -76,11 +27,15 @@ const SET_TMP_SCHEMA = {
 /** Posture accepted by {@link set_tmp}. */
 export type BodyPosition = "sitting" | "standing";
 
-/** Optional overrides accepted by {@link set_tmp}. */
+/**
+ * Optional overrides accepted by {@link set_tmp}.
+ *
+ * @public
+ */
 export interface SetTmpKwargs {
-  /** round the result of the SET */
+  /** Round the result of the SET. Default `true`. */
   round?: boolean;
-  /** select if SET is used to calculate Cooling Effect */
+  /** Select if SET is used to calculate the Cooling Effect. Default `false`. */
   calculate_ce?: boolean;
 }
 
@@ -94,6 +49,38 @@ export interface SetTmpResult {
   set: number;
 }
 
+/**
+ * Calculates the Standard Effective Temperature (SET). The SET is the
+ * temperature of a hypothetical isothermal environment at 50% (rh),
+ * <0.1 m/s (20 fpm) average air speed (v), and tr = tdb, in which the
+ * total heat loss from the skin of an imaginary occupant wearing
+ * clothing, standardized for the activity concerned is the same as
+ * that from a person in the actual environment with actual clothing
+ * and activity level [10].
+ *
+ * @param tdb - Dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'.
+ * @param tr - Mean radiant temperature, default in [°C]
+ * @param v - Air speed, default in [m/s]
+ * @param rh - Relative humidity, [%].
+ * @param met - Metabolic rate, [W/(m2)]
+ * @param clo - Clothing insulation, [clo]
+ * @param wme - External work, [W/(m2)], default 0
+ * @param body_surface_area - Body surface area, default value 1.8258 [m2], in [ft2] if `units` = 'IP'
+ * @param p_atm - Atmospheric pressure, default value 101325 [Pa], in [atm] if `units` = 'IP'
+ * @param body_position - Select either "sitting" or "standing"
+ * @param units - Select the SI (International System of Units) or the IP (Imperial Units) system.
+ * @param limit_inputs - By default, if the inputs are outside the following
+ * limits the function returns NaN. If false returns values regardless of the
+ * input values.
+ * @param kwargs - Optional overrides; see {@link SetTmpKwargs}
+ * @returns set containing results for the model
+ *
+ * @public
+ * @category Models
+ *
+ * @example
+ * const set = set_tmp(25, 25, 0.1, 50, 1.2, 0.5); // returns {set: 24.3}
+ */
 export function set_tmp(
   tdb: number,
   tr: number,

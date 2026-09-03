@@ -12,7 +12,7 @@ Example:
 import {
   models,
   utilities,
-  pschymetrics,
+  psychrometrics,
 } from "https://cdn.jsdelivr.net/npm/jsthermalcomfort/lib/esm/index.js";
 ```
 
@@ -23,7 +23,7 @@ You can also import it in the website directly, and caution that you need to mar
   import {
     models,
     utilities,
-    pschymetrics,
+    psychrometrics,
   } from "https://cdn.jsdelivr.net/npm/jsthermalcomfort/lib/esm/index.js";
 </script>
 ```

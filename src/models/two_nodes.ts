@@ -4,120 +4,73 @@ import type { BodyPosition } from "./set_tmp.js";
 import type { ValidationSchema } from "../utilities/utilities.js";
 
 /**
- * @typedef {Object} TwoNodesReturnType
- * @property {number} e_skin – Total rate of evaporative heat loss from skin, [W/m2]. Equal to e_rsw + e_diff
- * @property {number} e_rsw  – Rate of evaporative heat loss from sweat evaporation, [W/m2]
- * @property {number} e_max  – Maximum rate of evaporative heat loss from skin, [W/m2]
- * @property {number} q_sensible  – Sensible heat loss from skin, [W/m2]
- * @property {number} q_skin  – Total rate of heat loss from skin, [W/m2]. Equal to q_sensible + e_skin
- * @property {number} q_res  – Total rate of heat loss through respiration, [W/m2]
- * @property {number} t_core  – Core temperature, [°C]
- * @property {number} t_skin  – Skin temperature, [°C]
- * @property {number} m_bl  – Skin blood flow, [kg/h/m2]
- * @property {number} m_rsw  – Rate at which regulatory sweat is generated, [kg/h/m2]
- * @property {number} w  – Skin wettedness, adimensional. Ranges from 0 and 1.
- * @property {number} w_max  – Skin wettedness (w) practical upper limit, adimensional. Ranges from 0 and 1.
- * @property {number} set  – Standard Effective Temperature (SET)
- * @property {number} et  – New Effective Temperature (ET)
- * @property {number} pmv_gagge  – PMV Gagge
- * @property {number} pmv_set  – PMV SET
- * @property {number} disc  – Thermal discomfort
- * @property {number} t_sens  – Predicted Thermal Sensation
+ * Optional overrides accepted by {@link two_nodes}.
+ *
  * @public
  */
-
-/**
- * @typedef {Object} TwoNodesKwargs - a keywords argument set containing the additional arguments for Two nodes model calculation
- * @property {boolean} [round=true] - round the result of two nodes model
- * @property {boolean} [calculate_ce=false] - select if SET is used to calculate Cooling Effect
- * @property {number} [max_sweating] - maximum rate at which regulatory sweat is generated, [kg/h/m2]
- * @property {number} [w_max]  – maximum skin wettedness (w) adimensional. Ranges from 0 and 1
- * @public
- */
-
-/**
- * @typedef {Object} TwoNodesKwargsRequired
- * @property {boolean} round
- * @property {boolean} calculate_ce
- * @property {number} max_sweating
- * @property {number} w_max
- */
-
-/**
- * 
- * Two-node model of human temperature regulation Gagge et al. (1986).
- * 
- * {@link #ref_10|[10]} This model can be used to calculate a variety of indices, including:
- * 
- *  - Gagge’s version of Fanger’s Predicted Mean Vote (PMV). This function uses
- * the Fanger’s PMV equations but it replaces the heat loss and gain terms
- * with those calculated by the two node model developed by Gagge et al. (1986) {@link #ref_10|[10]}.
- *  - PMV SET and the predicted thermal sensation based on SET {@link #ref_10|[10]}. This function is 
- * similar in all aspects to the pythermalcomfort.models.pmv_gagge(). However, it uses the 
- * pythermalcomfort.models.set() equation to calculate the dry heat loss by convection.
- *  - Thermal discomfort (DISC) as the relative thermoregulatory strain necessary
- * to restore a state of comfort and thermal equilibrium by sweating {@link #ref_10|[10]}. DISC is
- * described numerically as: comfortable and pleasant (0), slightly uncomfortable but acceptable (1), 
- * uncomfortable and unpleasant (2), very uncomfortable (3), limited tolerance (4), and intolerable (S).
- * The range of each category is ± 0.5 numerically. In the cold, the classical negative category 
- * descriptions used for Fanger’s PMV apply {@link #ref_10|[10]}.
- *  - Heat gains and losses via convection, radiation and conduction.
- *  - The Standard Effective Temperature (SET)
- *  - The New Effective Temperature (ET)
- *  - The Predicted Thermal Sensation (TSENS)
- *  - The Predicted Percent Dissatisfied Due to Draft (PD)
- *  - Predicted Percent Satisfied With the Level of Air Movement” (PS)
- * 
- * @public
- * @memberof models
- * @docname Gagge et al. two-node model
- * 
- *
- * @param {number} tdb Dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'.
- * @param {number} tr Mean radiant temperature, default in [°C]
- * @param {number} v Air speed, default in [m/s]
- * @param {number} rh Relative humidity, [%].
- * @param {number} met Metabolic rate, [W/(m2)]
- * @param {number} clo Clothing insulation, [clo]
- * @param {number} [wme=0] External work, [W/(m2)] default 0
- * @param {number} [body_surface_area=1.8258] Body surface area, default value 1.8258 [m2] in [ft2] if units = ‘IP’
- * @param {number} [p_atmospheric=101325] Atmospheric pressure, default value 101325 [Pa] in [atm] if units = ‘IP’
- * @param {"standing" | "sitting"} [body_position="standing"] Select either “sitting” or “standing”
- * @param {number} [max_skin_blood_flow=90] Maximum blood flow from the core to the skin, [kg/h/m2] default 90
- * @param {TwoNodesKwargs} [kwargs]
- *
- * @returns {TwoNodesReturnType} object with results of two_nodes
- *
- * @example
- * const results = two_nodes(25, 25, 0.3, 50, 1.2, 0.5);
- * console.log(results); // {
-  e_skin: 16.2,
-  e_rsw: 7,
-  e_max: 159.9,
-  q_sensible: 47.6,
-  q_skin: 63.8,
-  q_res: 5.2,
-  t_core: 36.9,
-  t_skin: 33.7,
-  m_bl: 12.9,
-  m_rsw: 10.3,
-  w: 0.1,
-  w_max: 0.6,
-  set: 23.6,
-  et: 25,
-  pmv_gagge: 0.1,
-  pmv_set: -0,
-  disc: 0.1,
-  t_sens: 0.1
-}
- *
- */
-/** Optional overrides accepted by {@link two_nodes}. */
 export interface TwoNodesKwargs {
+  /** Round the result of the two-node model. Default `true`. */
   round?: boolean;
+  /** Select if SET is used to calculate the Cooling Effect. Default `false`. */
   calculate_ce?: boolean;
+  /** Maximum rate at which regulatory sweat is generated, [kg/h/m2]. Default `500`. */
   max_sweating?: number;
+  /**
+   * Maximum skin wettedness (w), adimensional. Ranges from 0 to 1. Pass
+   * `false` for "no override", which is normalised to `undefined`.
+   */
   w_max?: number | false | undefined;
+}
+
+/**
+ * What {@link two_nodes} returns with the default `round: true`.
+ *
+ * The two other shapes are narrower or differently spelled:
+ * - with `calculate_ce: true`, only `set` is returned;
+ * - with `round: false`, the same eighteen quantities come back under the
+ *   model's internal camelCase names (`eSkin`, `eRsw`, `qSensible`, …) rather
+ *   than the snake_case ones below. That asymmetry is inherited from
+ *   jsthermalcomfort 1.4.0 and pinned by `tests/baseline.test.ts`.
+ *
+ * @public
+ */
+export interface TwoNodesResult {
+  /** Total rate of evaporative heat loss from skin, [W/m2]. Equal to `e_rsw + e_diff` */
+  e_skin: number;
+  /** Rate of evaporative heat loss from sweat evaporation, [W/m2] */
+  e_rsw: number;
+  /** Maximum rate of evaporative heat loss from skin, [W/m2] */
+  e_max: number;
+  /** Sensible heat loss from skin, [W/m2] */
+  q_sensible: number;
+  /** Total rate of heat loss from skin, [W/m2]. Equal to `q_sensible + e_skin` */
+  q_skin: number;
+  /** Total rate of heat loss through respiration, [W/m2] */
+  q_res: number;
+  /** Core temperature, [°C] */
+  t_core: number;
+  /** Skin temperature, [°C] */
+  t_skin: number;
+  /** Skin blood flow, [kg/h/m2] */
+  m_bl: number;
+  /** Rate at which regulatory sweat is generated, [kg/h/m2] */
+  m_rsw: number;
+  /** Skin wettedness, adimensional. Ranges from 0 and 1. */
+  w: number;
+  /** Skin wettedness (w) practical upper limit, adimensional. Ranges from 0 and 1. */
+  w_max: number;
+  /** Standard Effective Temperature (SET) */
+  set: number;
+  /** New Effective Temperature (ET) */
+  et: number;
+  /** PMV Gagge */
+  pmv_gagge: number;
+  /** PMV SET */
+  pmv_set: number;
+  /** Thermal discomfort */
+  disc: number;
+  /** Predicted Thermal Sensation */
+  t_sens: number;
 }
 
 const TWO_NODES_SCHEMA = {
@@ -138,6 +91,66 @@ const TWO_NODES_SCHEMA = {
   w_max: { type: "number", required: false },
 } satisfies ValidationSchema;
 
+/**
+ * Two-node model of human temperature regulation, Gagge et al. (1986) [10].
+ *
+ * This model can be used to calculate a variety of indices, including:
+ *
+ * - Gagge's version of Fanger's Predicted Mean Vote (PMV). This uses Fanger's
+ *   PMV equations but replaces the heat loss and gain terms with those
+ *   calculated by the two-node model developed by Gagge et al. (1986) [10].
+ * - PMV SET and the predicted thermal sensation based on SET [10]. This is
+ *   similar in all aspects to `pythermalcomfort.models.pmv_gagge()`, except
+ *   that it uses the `pythermalcomfort.models.set()` equation to calculate the
+ *   dry heat loss by convection.
+ * - Thermal discomfort (DISC) as the relative thermoregulatory strain necessary
+ *   to restore a state of comfort and thermal equilibrium by sweating [10].
+ *   DISC is described numerically as: comfortable and pleasant (0), slightly
+ *   uncomfortable but acceptable (1), uncomfortable and unpleasant (2), very
+ *   uncomfortable (3), limited tolerance (4), and intolerable (5). The range of
+ *   each category is ± 0.5 numerically. In the cold, the classical negative
+ *   category descriptions used for Fanger's PMV apply [10].
+ * - Heat gains and losses via convection, radiation and conduction.
+ * - The Standard Effective Temperature (SET)
+ * - The New Effective Temperature (ET)
+ * - The Predicted Thermal Sensation (TSENS)
+ * - The Predicted Percent Dissatisfied Due to Draft (PD)
+ * - Predicted Percent Satisfied With the Level of Air Movement (PS)
+ *
+ * @param tdb - Dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'.
+ * @param tr - Mean radiant temperature, default in [°C]
+ * @param v - Air speed, default in [m/s]
+ * @param rh - Relative humidity, [%].
+ * @param met - Metabolic rate, [W/(m2)]
+ * @param clo - Clothing insulation, [clo]
+ * @param wme - External work, [W/(m2)], default 0
+ * @param body_surface_area - Body surface area, default value 1.8258 [m2], in [ft2] if `units` = 'IP'
+ * @param p_atmospheric - Atmospheric pressure, default value 101325 [Pa], in [atm] if `units` = 'IP'
+ * @param body_position - Select either "sitting" or "standing"
+ * @param max_skin_blood_flow - Maximum blood flow from the core to the skin, [kg/h/m2], default 90
+ * @param kwargs - Optional overrides; see {@link TwoNodesKwargs}
+ *
+ * @returns a {@link TwoNodesResult} by default. With `calculate_ce: true` only
+ * `set` is returned; with `round: false` the same quantities come back under
+ * camelCase names.
+ *
+ * @public
+ * @category Models
+ *
+ * @example
+ * const results = two_nodes(25, 25, 0.3, 50, 1.2, 0.5);
+ * console.log(results);
+ * // {
+ * //   e_skin: 16.2, e_rsw: 7, e_max: 159.9,
+ * //   q_sensible: 47.6, q_skin: 63.8, q_res: 5.2,
+ * //   t_core: 36.9, t_skin: 33.7,
+ * //   m_bl: 12.9, m_rsw: 10.3,
+ * //   w: 0.1, w_max: 0.6,
+ * //   set: 23.6, et: 25,
+ * //   pmv_gagge: 0.1, pmv_set: -0,
+ * //   disc: 0.1, t_sens: 0.1
+ * // }
+ */
 export function two_nodes(
   tdb: number,
   tr: number,
@@ -259,8 +272,8 @@ const skinBloodFlowNeutral = 6.3;
 /**
  * Round all elments in a given array to the given precision.
  *
- * @param {number[]} array - the array to round
- * @param {number} precision - the number of decimal places to round to
+ * @param array - the array to round
+ * @param precision - the number of decimal places to round to
  * @returns the rounded result
  */
 export function roundArray(array: number[], precision: number) {
@@ -273,9 +286,9 @@ export function roundArray(array: number[], precision: number) {
 /**
  * Calculate vapor pressure based on air temperature and relative humidity.
  *
- * @param {number} tdb - air temperature [C]
- * @param {number} rh - relative humidity [%]
- * @returns {number} vapor pressure
+ * @param tdb - air temperature [C]
+ * @param rh - relative humidity [%]
+ * @returns vapor pressure
  */
 function cal_vapor_pressure(tdb: number, rh: number) {
   return (rh * p_sat_torr(tdb)) / 100;
@@ -284,9 +297,9 @@ function cal_vapor_pressure(tdb: number, rh: number) {
 /**
  * Calculate metabolic rate based on metabolic [W/(m2)] and external work.
  *
- * @param {number} met - Metabolic rate, [W/(m2)]
- * @param {number} wme - External work, default 0
- * @returns {number} metabolic rate
+ * @param met - Metabolic rate, [W/(m2)]
+ * @param wme - External work, default 0
+ * @returns metabolic rate
  */
 function calculate_metabolic_rate(met: number, wme: number) {
   return (met - wme) * metFactor;
@@ -295,10 +308,10 @@ function calculate_metabolic_rate(met: number, wme: number) {
 /**
  * Calculate wettedness (w) practical upper limit based on airspeed and clothing insulation
  *
- * @param {number} airSpeed Airspeed
- * @param {number} clo Clothing insulation, [clo]
- * @param {TwoNodesKwargs} [kwargs]
- * @returns {number} wettedness practical upper limit
+ * @param airSpeed Airspeed
+ * @param clo Clothing insulation, [clo]
+ * @param [kwargs]
+ * @returns wettedness practical upper limit
  */
 function calculate_w_max(
   airSpeed: number,
@@ -313,10 +326,10 @@ function calculate_w_max(
 /**
  * Calculate Predicted Thermal Sensation based on max wettedness, metabolic rate and mean body temperature
  *
- * @param {number} tBody mean body temperature
- * @param {number} rm retabolic rate
- * @param {number} wMax wettedness practical upper limit
- * @returns {number} thermal sansation
+ * @param tBody mean body temperature
+ * @param rm retabolic rate
+ * @param wMax wettedness practical upper limit
+ * @returns thermal sansation
  */
 function calculate_thermal_sansation(tBody: number, rm: number, wMax: number) {
   const tbmL = (0.194 / 58.15) * rm + 36.301;
@@ -334,13 +347,13 @@ function calculate_thermal_sansation(tBody: number, rm: number, wMax: number) {
 /**
  * Calculate standard effective temperature
  *
- * @param {number} tSkin skin temperature
- * @param {number} qSkin total heat loss from skin
- * @param {number} hDS
- * @param {number} pSSk saturation vapour pressure of water of the skin
- * @param {number} w skin wettness
- * @param {number} hES
- * @returns {number} SET
+ * @param tSkin skin temperature
+ * @param qSkin total heat loss from skin
+ * @param hDS
+ * @param pSSk saturation vapour pressure of water of the skin
+ * @param w skin wettness
+ * @param hES
+ * @returns SET
  */
 function calculate_set(
   tSkin: number,
@@ -378,15 +391,15 @@ function calculate_set(
 /**
  * Calculate effective temperature
  *
- * @param {number} tSkin skin temperature
- * @param {number} qSkin total heat loss from skin
- * @param {number} pSSk saturation vapour pressure of water of the skin
- * @param {number} w skin wettness
- * @param {number} rA
- * @param {number} rA
- * @param {number} rEa
- * @param {number} rEcl
- * @returns {number} ET
+ * @param tSkin skin temperature
+ * @param qSkin total heat loss from skin
+ * @param pSSk saturation vapour pressure of water of the skin
+ * @param w skin wettness
+ * @param rA
+ * @param rA
+ * @param rEa
+ * @param rEcl
+ * @returns ET
  */
 function calculate_et(
   tSkin: number,
@@ -428,13 +441,13 @@ function calculate_et(
 /**
  * Calculate thermal discomfort
  *
- * @param {number} eRsw rate of evaporative heat loss from sweat evaporation
- * @param {number} eComfort evaporative heat loss during comfort
- * @param {number} eMax maximum rate of evaporative heat loss from skin
- * @param {number} wMax maximum skin wettness
- * @param {number} eDiff rate of evaporative heat loss from moisture diffused through the skin
- * @param {number} tSens thermal sansation
- * @returns {number} Thermal discomfort
+ * @param eRsw rate of evaporative heat loss from sweat evaporation
+ * @param eComfort evaporative heat loss during comfort
+ * @param eMax maximum rate of evaporative heat loss from skin
+ * @param wMax maximum skin wettness
+ * @param eDiff rate of evaporative heat loss from moisture diffused through the skin
+ * @param tSens thermal sansation
+ * @returns Thermal discomfort
  */
 function calculate_discomfort(
   eRsw: number,
@@ -462,11 +475,11 @@ function calculate_discomfort(
 /**
  * Calculate PMV Gagge
  *
- * @param {number} m metabolic rate
- * @param {number} eReq evaporative heat loss required for tmp regulation
- * @param {number} eComfort evaporative heat loss during comfort
- * @param {number} eDiff rate of evaporative heat loss from moisture diffused through the skin
- * @returns {number} PMV Gagge
+ * @param m metabolic rate
+ * @param eReq evaporative heat loss required for tmp regulation
+ * @param eComfort evaporative heat loss during comfort
+ * @param eDiff rate of evaporative heat loss from moisture diffused through the skin
+ * @returns PMV Gagge
  */
 function calculate_pmv_gagge(
   m: number,
@@ -480,16 +493,16 @@ function calculate_pmv_gagge(
 /**
  * Calculate PMV SET
  *
- * @param {number} m metabolic rate
- * @param {number} eComfort evaporative heat loss during comfort
- * @param {number} eDiff rate of evaporative heat loss from moisture diffused through the skin
- * @param {number} hDS
- * @param {number} tSkin skin temperature
- * @param {number} set SET
- * @param {number} rm metabolic rate
- * @param {number} cRes convective heat loss respiration
- * @param {number} qRes heat loss due to respiration
- * @returns {number} PMV SET
+ * @param m metabolic rate
+ * @param eComfort evaporative heat loss during comfort
+ * @param eDiff rate of evaporative heat loss from moisture diffused through the skin
+ * @param hDS
+ * @param tSkin skin temperature
+ * @param set SET
+ * @param rm metabolic rate
+ * @param cRes convective heat loss respiration
+ * @param qRes heat loss due to respiration
+ * @returns PMV SET
  */
 function calculate_pmv_set(
   m: number,
@@ -510,9 +523,9 @@ function calculate_pmv_set(
 /**
  * Calculate Predicted  Percent  Satisfied  With  the  Level  of  Air  Movement
  *
- * @param {number} tOp operative temperature
- * @param {number} v Air speed, default in [m/s]
- * @returns {number} predicted percent satisfied
+ * @param tOp operative temperature
+ * @param v Air speed, default in [m/s]
+ * @returns predicted percent satisfied
  */
 function calculate_percent_satisfied(tOp: number, v: number) {
   return (
@@ -521,18 +534,18 @@ function calculate_percent_satisfied(tOp: number, v: number) {
 }
 
 /**
- * @param {number} tdb Dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'.
- * @param {number} tr Mean radiant temperature, default in [°C]
- * @param {number} v Air speed, default in [m/s]
- * @param {number} met Metabolic rate, [W/(m2)]
- * @param {number} clo Clothing insulation, [clo]
- * @param {number} vaporPressure Vapor pressure
- * @param {number} wme External work, [W/(m2)] default 0
- * @param {number} bodySurfaceArea Body surface area, default value 1.8258 [m2] in [ft2] if units = ‘IP’
- * @param {number} pAtmospheric Atmospheric pressure, default value 101325 [Pa] in [atm] if units = ‘IP’
- * @param {"standing" | "sitting"} bodyPosition Select either “sitting” or “standing”
- * @param {number} maxSkinBloodFlow Maximum blood flow from the core to the skin, [kg/h/m2] default 90
- * @param {TwoNodesKwargs} [kwargs]
+ * @param tdb Dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'.
+ * @param tr Mean radiant temperature, default in [°C]
+ * @param v Air speed, default in [m/s]
+ * @param met Metabolic rate, [W/(m2)]
+ * @param clo Clothing insulation, [clo]
+ * @param vaporPressure Vapor pressure
+ * @param wme External work, [W/(m2)] default 0
+ * @param bodySurfaceArea Body surface area, default value 1.8258 [m2] in [ft2] if units = ‘IP’
+ * @param pAtmospheric Atmospheric pressure, default value 101325 [Pa] in [atm] if units = ‘IP’
+ * @param bodyPosition Select either “sitting” or “standing”
+ * @param maxSkinBloodFlow Maximum blood flow from the core to the skin, [kg/h/m2] default 90
+ * @param [kwargs]
  *
  */
 function calculate_two_nodes(

@@ -11,10 +11,5 @@ export default defineConfig({
     // the network (see tests/models/comftest.js); the default 5s can be tight
     // on a cold connection.
     testTimeout: 20_000,
-    coverage: {
-      provider: "v8",
-      include: ["src/**/*.ts"],
-      exclude: ["src/**/index.ts"],
-    },
   },
 });

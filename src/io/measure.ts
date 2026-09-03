@@ -17,7 +17,7 @@ import type { Quantity } from "./quantity.js";
  *
  * @public
  */
-export class ComfortInterval {
+export interface ComfortInterval {
   /** e.g. `"80%"`, `"Category I"`, `"Compliant"`. */
   readonly label: string;
   /** Lower bound, in the unit of the {@link Measure} that carries it. */
@@ -26,22 +26,6 @@ export class ComfortInterval {
   readonly high: number;
   /** Whether the evaluated conditions fell inside this range. */
   readonly satisfied: boolean;
-
-  constructor(label: string, low: number, high: number, satisfied: boolean) {
-    this.label = label;
-    this.low = low;
-    this.high = high;
-    this.satisfied = satisfied;
-  }
-}
-
-/** Constructor argument for {@link Measure}. */
-export interface MeasureInit {
-  readonly quantity: Quantity;
-  readonly value: number;
-  readonly unit: string;
-  readonly category?: string | undefined;
-  readonly intervals?: readonly ComfortInterval[] | undefined;
 }
 
 /**
@@ -55,7 +39,7 @@ export interface MeasureInit {
  *
  * @public
  */
-export class Measure {
+export interface Measure {
   readonly quantity: Quantity;
   readonly value: number;
   /**
@@ -64,20 +48,15 @@ export class Measure {
    */
   readonly unit: string;
   /**
-   * The band label, e.g. `"Slightly Cool"`. `undefined` when the model has no
+   * The band label, e.g. `"Slightly Cool"`. Absent when the model has no
    * classification (both adaptive models) or when the value falls outside
    * every band — including when it is NaN, which is the normal result for an
    * input outside the standard's applicability limits.
    */
-  readonly category: string | undefined;
-  /** Comfort ranges evaluated for this value. Empty when the model has none. */
+  readonly category?: string | undefined;
+  /**
+   * Comfort ranges evaluated for this value. Always present; empty when the
+   * model has none, so a consumer can iterate it without a guard.
+   */
   readonly intervals: readonly ComfortInterval[];
-
-  constructor(init: MeasureInit) {
-    this.quantity = init.quantity;
-    this.value = init.value;
-    this.unit = init.unit;
-    this.category = init.category;
-    this.intervals = init.intervals ?? [];
-  }
 }

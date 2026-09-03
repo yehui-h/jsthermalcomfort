@@ -457,51 +457,6 @@ describe("validateInputs", () => {
       ).not.toThrow();
     });
   });
-
-  describe("min / max / exclusiveMin", () => {
-    test("throws RangeError when value is below min", () => {
-      expect(() =>
-        validateInputs({ x: -1 }, { x: { type: "number", min: 0 } }),
-      ).toThrow(RangeError);
-    });
-
-    test("does not throw when value equals min", () => {
-      expect(() =>
-        validateInputs({ x: 0 }, { x: { type: "number", min: 0 } }),
-      ).not.toThrow();
-    });
-
-    test("throws RangeError when value is above max", () => {
-      expect(() =>
-        validateInputs({ x: 1001 }, { x: { type: "number", max: 1000 } }),
-      ).toThrow(RangeError);
-    });
-
-    test("does not throw when value equals max", () => {
-      expect(() =>
-        validateInputs({ x: 1000 }, { x: { type: "number", max: 1000 } }),
-      ).not.toThrow();
-    });
-
-    test("throws RangeError when value equals exclusiveMin", () => {
-      expect(() =>
-        validateInputs({ x: 0 }, { x: { type: "number", exclusiveMin: 0 } }),
-      ).toThrow(RangeError);
-    });
-
-    test("does not throw when value is above exclusiveMin", () => {
-      expect(() =>
-        validateInputs({ x: 0.1 }, { x: { type: "number", exclusiveMin: 0 } }),
-      ).not.toThrow();
-    });
-
-    test("validates interval [min, max] — rejects both ends out of range", () => {
-      const schema = { x: { type: "number", min: 0, max: 1 } };
-      expect(() => validateInputs({ x: -0.1 }, schema)).toThrow(RangeError);
-      expect(() => validateInputs({ x: 1.1 }, schema)).toThrow(RangeError);
-      expect(() => validateInputs({ x: 0.5 }, schema)).not.toThrow();
-    });
-  });
 });
 
 describe("check_standard_compliance", () => {

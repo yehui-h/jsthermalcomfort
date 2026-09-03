@@ -97,7 +97,7 @@ export interface PsychrometricZoneOptions {
    *
    * 1. The secant method clamps every candidate temperature to `[0, 100]`
    *    even though the bracket is `[-50, 50]`, so roots below 0 °C cannot be
-   *    reached (see {@link SecantOptions.clampCandidates}).
+   *    reached.
    * 2. The saturation line runs between the roots of `PMV = ±0.5`, hard-coded,
    *    instead of `PMV = ±pmvLimit`. Every EN category therefore gets the same
    *    top segment as the ±0.5 zone.
@@ -136,6 +136,8 @@ export interface PsychrometricZoneOptions {
  * Output is SI and ungarnished: no unit conversion, no clipping to a viewport,
  * no styling. Those are the caller's business.
  *
+ * @public
+ *
  * @example
  * import { charts, clo_dynamic, v_relative } from "jsthermalcomfort";
  *
@@ -146,8 +148,6 @@ export interface PsychrometricZoneOptions {
  *   clo: clo_dynamic(0.5, 1.1),
  * });
  * zone.polygon.map((p) => [p.db, p.hr]);
- *
- * @public
  */
 export function psychrometricZone(
   options: PsychrometricZoneOptions,

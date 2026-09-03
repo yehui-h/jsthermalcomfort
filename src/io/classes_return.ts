@@ -13,8 +13,8 @@ import {
   PmvPpdAshraeInputs,
   PmvPpdInputs,
 } from "./classes_input.js";
-import { ComfortInterval, Measure } from "./measure.js";
 import { quantities, unitFor } from "./quantity.js";
+import type { ComfortInterval, Measure } from "./measure.js";
 import type {
   AdaptiveInit,
   PmvPpdAshraeInit,
@@ -55,12 +55,12 @@ function bandsFrom(
 ): readonly ComfortInterval[] {
   return offsets.map((offset, index) => {
     const band = evaluated[index]!;
-    return new ComfortInterval(
-      offset.label,
-      band.low,
-      band.high,
-      band.satisfied,
-    );
+    return {
+      label: offset.label,
+      low: band.low,
+      high: band.high,
+      satisfied: band.satisfied,
+    };
   });
 }
 
@@ -113,17 +113,19 @@ export class PmvPpdIsoOutputs implements Outcome {
   toMeasures(): readonly Measure[] {
     const { units } = this.inputs;
     return [
-      new Measure({
+      {
         quantity: quantities.pmv,
         value: this.pmv,
         unit: unitFor(quantities.pmv, units),
         category: this.tsv,
-      }),
-      new Measure({
+        intervals: [],
+      },
+      {
         quantity: quantities.ppd,
         value: this.ppd,
         unit: unitFor(quantities.ppd, units),
-      }),
+        intervals: [],
+      },
     ];
   }
 }
@@ -188,7 +190,7 @@ export class PmvPpdAshraeOutputs implements Outcome {
     const { units } = this.inputs;
     const { compliance } = pmv_ppd_ashrae;
     return [
-      new Measure({
+      {
         quantity: quantities.pmv,
         value: this.pmv,
         unit: unitFor(quantities.pmv, units),
@@ -200,19 +202,20 @@ export class PmvPpdAshraeOutputs implements Outcome {
           this.compliance === undefined
             ? []
             : [
-                new ComfortInterval(
-                  compliance.label,
-                  compliance.lower.value,
-                  compliance.upper.value,
-                  this.compliance,
-                ),
+                {
+                  label: compliance.label,
+                  low: compliance.lower.value,
+                  high: compliance.upper.value,
+                  satisfied: this.compliance,
+                },
               ],
-      }),
-      new Measure({
+      },
+      {
         quantity: quantities.ppd,
         value: this.ppd,
         unit: unitFor(quantities.ppd, units),
-      }),
+        intervals: [],
+      },
     ];
   }
 }
@@ -263,7 +266,7 @@ export class AdaptiveAshraeOutputs implements Outcome {
    */
   toMeasures(): readonly Measure[] {
     return [
-      new Measure({
+      {
         quantity: quantities.tmp_cmf,
         value: this.tmp_cmf,
         unit: unitFor(quantities.tmp_cmf, this.inputs.units),
@@ -279,7 +282,7 @@ export class AdaptiveAshraeOutputs implements Outcome {
             satisfied: this.acceptability_90,
           },
         ]),
-      }),
+      },
     ];
   }
 }
@@ -331,7 +334,7 @@ export class AdaptiveEnOutputs implements Outcome {
   /** One measure — the comfort temperature — carrying all three categories. */
   toMeasures(): readonly Measure[] {
     return [
-      new Measure({
+      {
         quantity: quantities.tmp_cmf,
         value: this.tmp_cmf,
         unit: unitFor(quantities.tmp_cmf, this.inputs.units),
@@ -352,7 +355,7 @@ export class AdaptiveEnOutputs implements Outcome {
             satisfied: this.acceptability_cat_iii,
           },
         ]),
-      }),
+      },
     ];
   }
 }
@@ -386,10 +389,8 @@ function adaptiveEnWarnings(inputs: AdaptiveInputs): readonly string[] {
  *
  * @public
  */
-export function pmvPpdIso(inputs: PmvPpdInit | PmvPpdInputs): PmvPpdIsoOutputs {
-  return new PmvPpdIsoOutputs(
-    inputs instanceof PmvPpdInputs ? inputs : new PmvPpdInputs(inputs),
-  );
+export function pmvPpdIso(inputs: PmvPpdInit): PmvPpdIsoOutputs {
+  return new PmvPpdIsoOutputs(new PmvPpdInputs(inputs));
 }
 
 /**
@@ -397,14 +398,8 @@ export function pmvPpdIso(inputs: PmvPpdInit | PmvPpdInputs): PmvPpdIsoOutputs {
  *
  * @public
  */
-export function pmvPpdAshrae(
-  inputs: PmvPpdAshraeInit | PmvPpdAshraeInputs,
-): PmvPpdAshraeOutputs {
-  return new PmvPpdAshraeOutputs(
-    inputs instanceof PmvPpdAshraeInputs
-      ? inputs
-      : new PmvPpdAshraeInputs(inputs),
-  );
+export function pmvPpdAshrae(inputs: PmvPpdAshraeInit): PmvPpdAshraeOutputs {
+  return new PmvPpdAshraeOutputs(new PmvPpdAshraeInputs(inputs));
 }
 
 /**
@@ -412,12 +407,8 @@ export function pmvPpdAshrae(
  *
  * @public
  */
-export function adaptiveAshrae(
-  inputs: AdaptiveInit | AdaptiveInputs,
-): AdaptiveAshraeOutputs {
-  return new AdaptiveAshraeOutputs(
-    inputs instanceof AdaptiveInputs ? inputs : new AdaptiveInputs(inputs),
-  );
+export function adaptiveAshrae(inputs: AdaptiveInit): AdaptiveAshraeOutputs {
+  return new AdaptiveAshraeOutputs(new AdaptiveInputs(inputs));
 }
 
 /**
@@ -425,10 +416,6 @@ export function adaptiveAshrae(
  *
  * @public
  */
-export function adaptiveEn(
-  inputs: AdaptiveInit | AdaptiveInputs,
-): AdaptiveEnOutputs {
-  return new AdaptiveEnOutputs(
-    inputs instanceof AdaptiveInputs ? inputs : new AdaptiveInputs(inputs),
-  );
+export function adaptiveEn(inputs: AdaptiveInit): AdaptiveEnOutputs {
+  return new AdaptiveEnOutputs(new AdaptiveInputs(inputs));
 }
