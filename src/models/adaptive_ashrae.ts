@@ -1,6 +1,10 @@
 import { adaptiveAshraeOffsets } from "../reference/offsets.js";
+import { ashrae55AdaptiveLimits } from "../reference/limits.js";
+import { standards } from "../reference/standards.js";
+import { quantities } from "../io/quantity.js";
 import { t_o } from "../psychrometrics/t_o.js";
 import {
+  UNIT_SYSTEMS,
   check_standard_compliance,
   round,
   units_converter,
@@ -36,7 +40,7 @@ const ADAPTIVE_ASHRAE_SCHEMA = {
   tr: { type: "number" },
   t_running_mean: { type: "number" },
   v: { type: "number" },
-  units: { enum: ["SI", "IP"] },
+  units: { enum: UNIT_SYSTEMS },
   limit_inputs: { type: "boolean" },
   round_output: { type: "boolean", required: false },
 } satisfies ValidationSchema;
@@ -171,15 +175,10 @@ export function adaptive_ashrae_with_warnings(
 
   const standard = "ASHRAE";
   if (units.toUpperCase() === "IP") {
-    ({
+    ({ tdb, tr, t_running_mean, v } = units_converter({
       tdb,
       tr,
-      tmp_running_mean: t_running_mean,
-      v,
-    } = units_converter({
-      tdb,
-      tr,
-      tmp_running_mean: t_running_mean,
+      t_running_mean,
       v,
     }));
   }
@@ -197,11 +196,13 @@ export function adaptive_ashrae_with_warnings(
     tr,
     v,
   });
-  const trm_valid = t_running_mean >= 10.0 && t_running_mean <= 33.5;
-  if (!trm_valid) {
-    warnings.push(
-      "ASHRAE running mean outdoor temperature applicability limits between 10.0 and 33.5 °C",
-    );
+  // The bounds and the message both come from the table; this is the one row
+  // `check_standard_compliance("ASHRAE", …)` does not cover.
+  const trm = ashrae55AdaptiveLimits.find(
+    ({ quantity }) => quantity === quantities.t_running_mean,
+  )!;
+  if (t_running_mean < trm.min || t_running_mean > trm.max) {
+    warnings.push(trm.warning);
   }
   if (limit_inputs && warnings.length > 0) t_cmf = NaN;
 
@@ -209,10 +210,14 @@ export function adaptive_ashrae_with_warnings(
     t_cmf = round(t_cmf, 1);
   }
 
-  let tmp_cmf_80_low = t_cmf - 3.5;
-  let tmp_cmf_90_low = t_cmf - 2.5;
-  let tmp_cmf_80_up = t_cmf + 3.5 + ce;
-  let tmp_cmf_90_up = t_cmf + 2.5 + ce;
+  // The band widths come from the reference table, not from literals repeated
+  // here: `adaptiveAshraeOffsets` is what `adaptive_ashrae.offsets` publishes
+  // and what the I/O and chart layers label these bounds with.
+  const [band80, band90] = adaptiveAshraeOffsets;
+  let tmp_cmf_80_low = t_cmf + band80.low;
+  let tmp_cmf_90_low = t_cmf + band90.low;
+  let tmp_cmf_80_up = t_cmf + band80.up + ce;
+  let tmp_cmf_90_up = t_cmf + band90.up + ce;
 
   const acceptability_80 = tmp_cmf_80_low <= to && to <= tmp_cmf_80_up;
   const acceptability_90 = tmp_cmf_90_low <= to && to <= tmp_cmf_90_up;
@@ -255,3 +260,6 @@ adaptive_ashrae.description =
   "Adaptive comfort temperature and 80%/90% acceptability ranges per ASHRAE 55.";
 /** Offsets from `tmp_cmf`; the upper bound also gains the cooling effect. */
 adaptive_ashrae.offsets = adaptiveAshraeOffsets;
+adaptive_ashrae.standard = standards.ashrae55;
+/** The ranges this model warns outside of, including the running mean. */
+adaptive_ashrae.limits = ashrae55AdaptiveLimits;

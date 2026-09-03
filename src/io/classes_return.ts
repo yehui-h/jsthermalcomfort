@@ -15,6 +15,11 @@ import {
 } from "./classes_input.js";
 import { quantities, unitFor } from "./quantity.js";
 import type { ComfortInterval, Measure } from "./measure.js";
+// Implemented, not re-declared: an Outputs class that drops or renames a field
+// the model returns stops compiling here.
+import type { AdaptiveAshraeResult } from "../models/adaptive_ashrae.js";
+import type { AdaptiveEnResult } from "../models/adaptive_en.js";
+import type { PmvPpdResult } from "../models/pmv_ppd.js";
 import type {
   AdaptiveInit,
   PmvPpdAshraeInit,
@@ -22,17 +27,26 @@ import type {
 } from "./classes_input.js";
 import type { AdaptiveOffset } from "../reference/offsets.js";
 
+// Named once, from the same tables the models compute their bounds with, so a
+// label and the numbers it goes on cannot come from different rows.
+const [band80, band90] = adaptiveAshraeOffsets;
+const [catI, catII, catIII] = adaptiveEnOffsets;
+
 /**
  * Results of one model run, in the shape every model reduces to.
  *
  * `toMeasures()` re-packages what the model already returned; it never
  * recomputes, so its numbers are bit-identical to a direct call.
  *
+ * `TInputs` is the validated input class the run came from, so a caller holding
+ * a concrete outcome reads `inputs.tdb` without casting; `Outcome` on its own
+ * still describes any of them.
+ *
  * @public
  */
-export interface Outcome {
+export interface Outcome<TInputs = unknown> {
   /** The validated inputs this result came from. */
-  readonly inputs: unknown;
+  readonly inputs: TInputs;
   /** Why the result is NaN, when it is. Empty when every input was in range. */
   readonly warnings: readonly string[];
   toMeasures(): readonly Measure[];
@@ -46,22 +60,18 @@ interface EvaluatedBand {
 }
 
 /**
- * Names the evaluated bands from the reference offsets, so the labels have a
- * single definition and stay in the order the reference table declares.
+ * Names one evaluated band from the reference offset it came from, so the label
+ * has a single definition.
+ *
+ * Offset and numbers are passed together rather than as two arrays lined up by
+ * index: a band can only be mislabelled by writing the wrong pair, not by one
+ * of the two lists being reordered somewhere else.
  */
-function bandsFrom(
-  offsets: readonly AdaptiveOffset[],
-  evaluated: readonly EvaluatedBand[],
-): readonly ComfortInterval[] {
-  return offsets.map((offset, index) => {
-    const band = evaluated[index]!;
-    return {
-      label: offset.label,
-      low: band.low,
-      high: band.high,
-      satisfied: band.satisfied,
-    };
-  });
+function bandFrom(
+  offset: AdaptiveOffset,
+  evaluated: EvaluatedBand,
+): ComfortInterval {
+  return { label: offset.label, ...evaluated };
 }
 
 /**
@@ -69,7 +79,7 @@ function bandsFrom(
  *
  * @public
  */
-export class PmvPpdIsoOutputs implements Outcome {
+export class PmvPpdIsoOutputs implements Outcome<PmvPpdInputs>, PmvPpdResult {
   readonly inputs: PmvPpdInputs;
   /** Predicted Mean Vote. */
   readonly pmv: number;
@@ -136,7 +146,9 @@ export class PmvPpdIsoOutputs implements Outcome {
  *
  * @public
  */
-export class PmvPpdAshraeOutputs implements Outcome {
+export class PmvPpdAshraeOutputs
+  implements Outcome<PmvPpdAshraeInputs>, PmvPpdResult
+{
   readonly inputs: PmvPpdAshraeInputs;
   /** Predicted Mean Vote. */
   readonly pmv: number;
@@ -226,7 +238,9 @@ export class PmvPpdAshraeOutputs implements Outcome {
  *
  * @public
  */
-export class AdaptiveAshraeOutputs implements Outcome {
+export class AdaptiveAshraeOutputs
+  implements Outcome<AdaptiveInputs>, AdaptiveAshraeResult
+{
   readonly inputs: AdaptiveInputs;
   /** Comfort temperature at that running mean temperature. */
   readonly tmp_cmf: number;
@@ -270,18 +284,18 @@ export class AdaptiveAshraeOutputs implements Outcome {
         quantity: quantities.tmp_cmf,
         value: this.tmp_cmf,
         unit: unitFor(quantities.tmp_cmf, this.inputs.units),
-        intervals: bandsFrom(adaptiveAshraeOffsets, [
-          {
+        intervals: [
+          bandFrom(band80, {
             low: this.tmp_cmf_80_low,
             high: this.tmp_cmf_80_up,
             satisfied: this.acceptability_80,
-          },
-          {
+          }),
+          bandFrom(band90, {
             low: this.tmp_cmf_90_low,
             high: this.tmp_cmf_90_up,
             satisfied: this.acceptability_90,
-          },
-        ]),
+          }),
+        ],
       },
     ];
   }
@@ -292,7 +306,9 @@ export class AdaptiveAshraeOutputs implements Outcome {
  *
  * @public
  */
-export class AdaptiveEnOutputs implements Outcome {
+export class AdaptiveEnOutputs
+  implements Outcome<AdaptiveInputs>, AdaptiveEnResult
+{
   readonly inputs: AdaptiveInputs;
   /** Comfort temperature at that running mean temperature. */
   readonly tmp_cmf: number;
@@ -338,23 +354,23 @@ export class AdaptiveEnOutputs implements Outcome {
         quantity: quantities.tmp_cmf,
         value: this.tmp_cmf,
         unit: unitFor(quantities.tmp_cmf, this.inputs.units),
-        intervals: bandsFrom(adaptiveEnOffsets, [
-          {
+        intervals: [
+          bandFrom(catI, {
             low: this.tmp_cmf_cat_i_low,
             high: this.tmp_cmf_cat_i_up,
             satisfied: this.acceptability_cat_i,
-          },
-          {
+          }),
+          bandFrom(catII, {
             low: this.tmp_cmf_cat_ii_low,
             high: this.tmp_cmf_cat_ii_up,
             satisfied: this.acceptability_cat_ii,
-          },
-          {
+          }),
+          bandFrom(catIII, {
             low: this.tmp_cmf_cat_iii_low,
             high: this.tmp_cmf_cat_iii_up,
             satisfied: this.acceptability_cat_iii,
-          },
-        ]),
+          }),
+        ],
       },
     ];
   }
@@ -375,8 +391,8 @@ export class AdaptiveEnOutputs implements Outcome {
 function adaptiveEnWarnings(inputs: AdaptiveInputs): readonly string[] {
   const trm =
     inputs.units === "IP"
-      ? units_converter({ tmp_running_mean: inputs.t_running_mean })
-          .tmp_running_mean
+      ? units_converter({ t_running_mean: inputs.t_running_mean })
+          .t_running_mean
       : inputs.t_running_mean;
   if (trm >= 10.0 && trm <= 33.5) return [];
   return [

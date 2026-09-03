@@ -9,6 +9,13 @@ import {
   clo_typical_ensembles,
   clo_individual_garments,
   check_standard_compliance,
+  valid_range,
+  // A runtime constant as well as a type, so it belongs in the value block:
+  // exporting it here re-exports both meanings.
+  Standard,
+  // The list `UnitSystem` is derived from; exported so a caller can offer the
+  // same two choices without writing them out again.
+  UNIT_SYSTEMS,
 } from "./utilities.js";
 
 export type {
@@ -16,7 +23,6 @@ export type {
   ClothingEnsemble,
   ClothingStandard,
   ComplianceKwargs,
-  Standard,
   UnitSystem,
   ValidationRule,
   ValidationSchema,
@@ -36,6 +42,9 @@ export {
   clo_typical_ensembles,
   clo_individual_garments,
   check_standard_compliance,
+  valid_range,
+  Standard,
+  UNIT_SYSTEMS,
 };
 
 export default {

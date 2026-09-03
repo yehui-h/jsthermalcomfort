@@ -1,5 +1,14 @@
 import { t_o } from "../psychrometrics/t_o.js";
 import { round } from "./round.js";
+// Leaf import on purpose: `reference/limits.js` reaches only `io/quantity.js`,
+// which type-imports this module and nothing else at runtime. Importing
+// `reference/index.js` here would pull in the models and close a cycle.
+import { ashrae55PmvLimits, iso7730PmvLimits } from "../reference/limits.js";
+import type { ApplicabilityLimit } from "../reference/limits.js";
+// Same leaf, reached directly: `quantities` is where a field name's meaning is
+// defined, and both the unit conversion and the range warnings read it there.
+import { quantities, quantityFor } from "../io/quantity.js";
+import type { QuantityKind } from "../io/quantity.js";
 
 export { round };
 
@@ -133,54 +142,45 @@ function _ankle_draft_compliance(kwargs: ComplianceKwargs): string[] {
 }
 
 /**
+ * Warns for every argument that falls outside its row in `limits`.
+ *
+ * The arguments are iterated, not the table: the caller's key order is what
+ * decides the order of the returned messages, and `tests/baseline.test.ts`
+ * compares those arrays positionally.
+ */
+function _range_warnings(
+  kwargs: ComplianceKwargs,
+  limits: readonly ApplicabilityLimit[],
+): string[] {
+  const warnings: string[] = [];
+  for (const [key, value] of Object.entries(kwargs)) {
+    // Only numeric fields are range-checked here; `airspeed_control` is a
+    // boolean and is handled by the cross-field checks in the callers.
+    if (typeof value !== "number") continue;
+    // Matched by identity, not by spelling: the field name resolves to the one
+    // `Quantity` object the table rows also point at, so the two can never
+    // drift apart the way two copies of a string can.
+    const quantity = quantityFor(key);
+    const limit = limits.find((row) => row.quantity === quantity);
+    if (limit === undefined) continue;
+    if (value < limit.min || value > limit.max) warnings.push(limit.warning);
+  }
+  return warnings;
+}
+
+/**
  * @param kwargs
  *
  * @returns strings with warnings emitted
  */
 function _ashrae_compliance(kwargs: ComplianceKwargs): string[] {
-  const warnings: string[] = [];
-  for (const [key, value] of Object.entries(kwargs)) {
-    // Only numeric fields are range-checked here; `airspeed_control` is a
-    // boolean and is handled by the cross-field checks below.
-    if (typeof value !== "number") continue;
+  // Not a range check: `v_limited` throws rather than warns, so it has no row.
+  if (typeof kwargs.v_limited === "number" && kwargs.v_limited > 0.2)
+    throw new Error(
+      "This equation is only applicable for air speed lower than 0.2 m/s",
+    );
 
-    switch (key) {
-      case "tdb":
-      case "tr": {
-        const parameter = key === "tdb" ? "dry-bulb" : "mean radiant";
-        if (value > 40 || value < 10)
-          warnings.push(
-            `ASHRAE ${parameter} temperature application limits between 10 and 40 ºC`,
-          );
-        break;
-      }
-      case "v":
-      case "vr":
-        if (value > 2 || value < 0)
-          warnings.push(
-            "ASHRAE air speed applicability limits between 0 and 2 m/s",
-          );
-        break;
-      case "met":
-        if (value > 4 || value < 1)
-          warnings.push(
-            "ASHRAE met applicability limits between 1.0 and 4.0 met",
-          );
-        break;
-      case "clo":
-        if (value > 1.5 || value < 0)
-          warnings.push(
-            "ASHRAE clo applicability limits between 0.0 and 1.5 clo",
-          );
-        break;
-      case "v_limited":
-        if (value > 0.2)
-          throw new Error(
-            "This equation is only applicable for air speed lower than 0.2 m/s",
-          );
-        break;
-    }
-  }
+  const warnings = _range_warnings(kwargs, ashrae55PmvLimits);
 
   // Cross-field check (ASHRAE 55 table 7.3.4): when the occupant cannot
   // control the airspeed, v has additional upper limits that depend on the
@@ -267,32 +267,10 @@ function _fan_heatwaves_compliance(kwargs: ComplianceKwargs): string[] {
  * @returns strings with warnings emitted
  */
 function _iso_compliance(kwargs: ComplianceKwargs): string[] {
-  const warnings: string[] = [];
-  for (const [key, value] of Object.entries(kwargs)) {
-    // Only numeric fields are range-checked here; `airspeed_control` is a
-    // boolean and is handled by the cross-field checks below.
-    if (typeof value !== "number") continue;
-    if (key === "tdb" && (value > 30 || value < 10))
-      warnings.push(
-        "ISO air temperature applicability limits between 10 and 30 ºC",
-      );
-    if (key === "tr" && (value > 40 || value < 10))
-      warnings.push(
-        "ISO mean radiant temperature applicability limits between 10 and 40 ºC",
-      );
-    if ((key === "v" || key === "vr") && (value > 1 || value < 0))
-      warnings.push("ISO air speed applicability limits between 0 and 1 m/s");
-    // NOTE: the bound is 0, not 0.8, so the ISO lower met limit never actually
-    // fires. Kept verbatim from jsthermalcomfort 1.4.0 — this package's contract
-    // is byte-identical results, and tests/baseline.test.ts enforces that.
-    // pythermalcomfort uses (0.8, 4.0); the discrepancy is recorded in
-    // src/reference/limits.ts so consumers can see both.
-    if (key === "met" && (value > 4 || value < 0))
-      warnings.push("ISO met applicability limits between 0.8 and 4.0 met");
-    if (key === "clo" && (value > 2 || value < 0))
-      warnings.push("ISO clo applicability limits between 0.0 and 2 clo");
-  }
-  return warnings;
+  // Every bound and every message lives in `iso7730PmvLimits`, including the
+  // met row whose lower bound is 0 while its message says 0.8 — that
+  // discrepancy is documented there.
+  return _range_warnings(kwargs, iso7730PmvLimits);
 }
 
 /**
@@ -486,45 +464,91 @@ function _clo_dynamic_single(clo: number, met: number): number {
   return Math.round((clo * (0.6 + 0.4 / met) + Number.EPSILON) * 1000) / 1000;
 }
 
-/** Unit system selector used across the library. */
-export type UnitSystem = "IP" | "SI";
-
 /**
- * The IP/SI conversion for every quantity `units_converter` recognises, paired
- * with the field-name test that selects it. First match wins, exactly as the
- * original if/else chain did.
+ * The unit systems the library accepts.
  *
- * The formulae are written character for character as they were before:
- * `tests/baseline.test.ts` pins this function's output byte for byte, so the
- * evaluation order inside each expression is part of the contract, not a
- * style choice.
+ * One definition with two readers: {@link UnitSystem} is derived from it, and
+ * every model's `units: { enum: … }` validation rule points at it rather than
+ * repeating the pair. Widening the union and forgetting a schema is therefore
+ * not a thing that can happen.
+ *
+ * @public
  */
-const CONVERSIONS: readonly {
-  readonly matches: (key: string) => boolean;
+export const UNIT_SYSTEMS = ["SI", "IP"] as const;
+
+/** Unit system selector used across the library. */
+export type UnitSystem = (typeof UNIT_SYSTEMS)[number];
+
+/** One quantity's two-way conversion between the unit systems. */
+interface Conversion {
   readonly ipToSi: (value: number) => number;
   readonly siToIp: (value: number) => number;
-}[] = [
-  {
-    matches: (key) => key.includes("tmp") || key === "tr" || key === "tdb",
-    ipToSi: (temp) => ((temp - 32) * 5) / 9,
-    siToIp: (temp) => (temp * 9) / 5 + 32,
-  },
-  {
-    matches: (key) => key === "v" || key === "vr" || key === "vel",
-    ipToSi: (vel) => vel / 3.281,
-    siToIp: (vel) => vel * 3.281,
-  },
-  {
-    matches: (key) => key === "area",
-    ipToSi: (area) => area / 10.764,
-    siToIp: (area) => area * 10.764,
-  },
-  {
-    matches: (key) => key === "pressure",
-    ipToSi: (pressure) => pressure * 101325,
-    siToIp: (pressure) => pressure / 101325,
-  },
-];
+}
+
+/**
+ * The formulae are written character for character as they were before:
+ * `tests/baseline.test.ts` pins `units_converter`'s output byte for byte, so
+ * the evaluation order inside each expression is part of the contract, not a
+ * style choice.
+ */
+const TEMPERATURE: Conversion = {
+  ipToSi: (temp) => ((temp - 32) * 5) / 9,
+  siToIp: (temp) => (temp * 9) / 5 + 32,
+};
+const AIR_SPEED: Conversion = {
+  ipToSi: (vel) => vel / 3.281,
+  siToIp: (vel) => vel * 3.281,
+};
+const AREA: Conversion = {
+  ipToSi: (area) => area / 10.764,
+  siToIp: (area) => area * 10.764,
+};
+const PRESSURE: Conversion = {
+  ipToSi: (pressure) => pressure * 101325,
+  siToIp: (pressure) => pressure / 101325,
+};
+
+/**
+ * How each kind of quantity converts. A kind absent from here reads the same in
+ * both systems — `percentage`, `metabolicRate`, `clothingInsulation` and
+ * `thermalSensation` are all dimensionless or already system-independent, which
+ * is exactly what their equal `siUnit`/`ipUnit` in `quantities` says.
+ */
+const BY_KIND: Partial<Record<QuantityKind, Conversion>> = {
+  temperature: TEMPERATURE,
+  airSpeed: AIR_SPEED,
+};
+
+/**
+ * Fields that are not quantities in their own right: `set_tmp`'s two optional
+ * kwargs and its result temperature, plus `vel` as a spelling of air speed that
+ * predates the quantity table.
+ */
+const BY_FIELD: Readonly<Record<string, Conversion>> = {
+  area: AREA,
+  pressure: PRESSURE,
+  tmp: TEMPERATURE,
+  vel: AIR_SPEED,
+};
+
+/**
+ * The conversion a field name calls for, or `undefined` when the value reads
+ * the same in both systems.
+ *
+ * Model parameter and result names resolve through `quantities`, so there is
+ * one definition of what each field measures and no second spelling to keep in
+ * step — passing `t_running_mean` under its own name converts it, where the
+ * previous substring test only recognised it if the caller respelled it
+ * `tmp_running_mean` first.
+ */
+function conversionFor(field: string): Conversion | undefined {
+  const quantity = quantityFor(field);
+  if (quantity !== undefined) return BY_KIND[quantity.kind];
+  // The comfort-temperature bounds (`tmp_cmf_80_low`, `tmp_cmf_cat_i_up`, …)
+  // are `tmp_cmf` carrying a band qualifier, so they convert with it.
+  if (field.startsWith("tmp_cmf")) return BY_KIND[quantities.tmp_cmf.kind];
+  return BY_FIELD[field];
+}
 
 /**
  * Converts IP values to SI units
@@ -547,9 +571,9 @@ export function units_converter<T extends Record<string, number>>(
 
   const direction = from_units === "IP" ? "ipToSi" : "siToIp";
   const result: Record<string, number> = { ...kwargs };
-  for (const [key, value] of Object.entries(result)) {
-    const conversion = CONVERSIONS.find(({ matches }) => matches(key));
-    if (conversion !== undefined) result[key] = conversion[direction](value);
+  for (const [field, value] of Object.entries(result)) {
+    const conversion = conversionFor(field);
+    if (conversion !== undefined) result[field] = conversion[direction](value);
   }
   return result as T;
 }
@@ -847,15 +871,27 @@ export const assertNumber = (value: unknown, name: string): void => {
  *   {
  *     tdb:   { type: "number" },
  *     tr:    { type: "number" },
- *     units: { enum: ["SI", "IP"] },
+ *     units: { enum: UNIT_SYSTEMS },
  *   }
  * );
  */
-export const validateInputs = (
-  params: Record<string, unknown>,
-  schema: ValidationSchema,
+export const validateInputs = <
+  T extends Record<string, unknown>,
+  S extends Record<keyof T, ValidationRule>,
+>(
+  params: T,
+  // Keyed to what was actually passed, in both directions: a parameter with no
+  // rule is a compile error, and so is a rule for a parameter that is not there
+  // — the `never` makes the extra key unsatisfiable. Before this, the first
+  // silently skipped validation and the second threw "must be a valid finite
+  // number" against `undefined` at run time.
+  schema: S & Record<Exclude<keyof S, keyof T>, never>,
 ): void => {
-  for (const [key, rules] of Object.entries(schema)) {
+  for (const [key, rules] of Object.entries(schema) as [
+    string,
+    ValidationRule | undefined,
+  ][]) {
+    if (rules === undefined) continue;
     const value = params[key];
     if (rules.required === false && value === undefined) continue;
     if (rules.type === "number") {

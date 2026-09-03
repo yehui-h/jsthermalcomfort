@@ -1,4 +1,5 @@
 import {
+  UNIT_SYSTEMS,
   check_standard_compliance,
   round,
   units_converter,
@@ -67,7 +68,7 @@ const PMV_PPD_SCHEMA = {
   clo: { type: "number" },
   wme: { type: "number" },
   standard: { enum: ["ISO", "ASHRAE"] },
-  units: { enum: ["SI", "IP"], required: false },
+  units: { enum: UNIT_SYSTEMS, required: false },
   limit_inputs: { type: "boolean", required: false },
   airspeed_control: { type: "boolean", required: false },
   round_output: { type: "boolean", required: false },

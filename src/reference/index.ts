@@ -22,4 +22,12 @@ export {
   adaptiveCoolingEffectMinOperative,
 } from "./offsets.js";
 export type { AdaptiveOffset } from "./offsets.js";
-export { enCategoryPmvLimits } from "./limits.js";
+export {
+  enCategoryPmvLimits,
+  iso7730PmvLimits,
+  ashrae55PmvLimits,
+  ashrae55AdaptiveLimits,
+} from "./limits.js";
+export type { ApplicabilityLimit } from "./limits.js";
+export { standards } from "./standards.js";
+export type { StandardRef } from "./standards.js";

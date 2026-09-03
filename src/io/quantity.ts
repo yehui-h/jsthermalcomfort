@@ -14,7 +14,8 @@ export type QuantityKind =
   | "percentage"
   | "metabolicRate"
   | "clothingInsulation"
-  | "thermalSensation";
+  | "thermalSensation"
+  | "pressure";
 
 /**
  * A physical quantity: what a number *is*, independent of any one result.
@@ -38,14 +39,31 @@ export interface Quantity {
 }
 
 /**
+ * Pins each entry's {@link Quantity.key} to the name it is filed under.
+ *
+ * `key` is the only link between this table and the model field it describes:
+ * {@link quantityFor} and the applicability tables in `src/reference/limits.ts`
+ * match on it, and a wrong one unhooks a quantity silently — no warning fires
+ * and no unit converts. The self-referential constraint turns that into a
+ * compile error. (It also widens `siUnit` and friends from their literals back
+ * to `string`; nothing reads those as types, and a legible error is worth
+ * more.)
+ */
+const table = <
+  const T extends { readonly [K in keyof T]: Quantity & { readonly key: K } },
+>(
+  entries: T,
+): T => entries;
+
+/**
  * Every quantity the models in this package take or return.
  *
  * Keys match the model parameter and result names exactly, so a consumer can
- * look one up from a field name it already has.
+ * look one up from a field name it already has with {@link quantityFor}.
  *
  * @public
  */
-export const quantities = {
+export const quantities = table({
   tdb: {
     key: "tdb",
     kind: "temperature",
@@ -57,6 +75,13 @@ export const quantities = {
     key: "tr",
     kind: "temperature",
     label: "Mean radiant temperature",
+    siUnit: "°C",
+    ipUnit: "°F",
+  },
+  t_o: {
+    key: "t_o",
+    kind: "temperature",
+    label: "Operative temperature",
     siUnit: "°C",
     ipUnit: "°F",
   },
@@ -80,6 +105,16 @@ export const quantities = {
     label: "Relative humidity",
     siUnit: "%",
     ipUnit: "%",
+  },
+  p_atm: {
+    key: "p_atm",
+    kind: "pressure",
+    label: "Atmospheric pressure",
+    // `units_converter`'s only pressure branch converts atm to Pa, which is not
+    // an IP/SI pair at all, so there is no IP spelling to align with. Equal
+    // units mean the quantity does not convert, exactly as for met and clo.
+    siUnit: "kPa",
+    ipUnit: "kPa",
   },
   met: {
     key: "met",
@@ -130,7 +165,24 @@ export const quantities = {
     siUnit: "°C",
     ipUnit: "°F",
   },
-} as const satisfies Record<string, Quantity>;
+});
+
+/** Widened view of {@link quantities}, so a runtime field name can index it. */
+const byName: Readonly<Record<string, Quantity>> = quantities;
+
+/**
+ * The quantity a model parameter or result field names, or `undefined` when the
+ * name belongs to none.
+ *
+ * The lookup {@link quantities}' own documentation promises: consumers, and the
+ * unit conversion in `units_converter`, resolve a field name here rather than
+ * keeping a second list of which names mean what.
+ *
+ * @public
+ */
+export function quantityFor(name: string): Quantity | undefined {
+  return byName[name];
+}
 
 /**
  * The unit a quantity is expressed in under a given unit system.

@@ -1,4 +1,4 @@
-import { validateInputs } from "../utilities/utilities.js";
+import { UNIT_SYSTEMS, validateInputs } from "../utilities/utilities.js";
 import type { UnitSystem, ValidationSchema } from "../utilities/utilities.js";
 
 /**
@@ -16,7 +16,7 @@ export interface BaseInputsInit {
 }
 
 const BASE_SCHEMA = {
-  units: { enum: ["SI", "IP"] },
+  units: { enum: UNIT_SYSTEMS },
   limit_inputs: { type: "boolean" },
   round_output: { type: "boolean" },
 } satisfies ValidationSchema;
@@ -121,14 +121,19 @@ export class PmvPpdInputs extends BaseInputs {
 
   constructor(init: PmvPpdInit) {
     super(init);
+    // The measured fields only: `units` and the two switches were validated by
+    // `super`. Listing them rather than spreading `init` is what lets
+    // `validateInputs` require a rule for each — a new field with no rule stops
+    // compiling instead of going unchecked.
+    const { tdb, tr, vr, rh, met, clo } = init;
     const wme = init.wme ?? 0;
-    validateInputs({ ...init, wme }, PMV_SCHEMA);
-    this.tdb = init.tdb;
-    this.tr = init.tr;
-    this.vr = init.vr;
-    this.rh = init.rh;
-    this.met = init.met;
-    this.clo = init.clo;
+    validateInputs({ tdb, tr, vr, rh, met, clo, wme }, PMV_SCHEMA);
+    this.tdb = tdb;
+    this.tr = tr;
+    this.vr = vr;
+    this.rh = rh;
+    this.met = met;
+    this.clo = clo;
     this.wme = wme;
   }
 }
@@ -171,10 +176,12 @@ export class AdaptiveInputs extends BaseInputs {
 
   constructor(init: AdaptiveInit) {
     super(init);
-    validateInputs({ ...init }, ADAPTIVE_SCHEMA);
-    this.tdb = init.tdb;
-    this.tr = init.tr;
-    this.t_running_mean = init.t_running_mean;
-    this.v = init.v;
+    // Measured fields only; `super` validated the options. See PmvPpdInputs.
+    const { tdb, tr, t_running_mean, v } = init;
+    validateInputs({ tdb, tr, t_running_mean, v }, ADAPTIVE_SCHEMA);
+    this.tdb = tdb;
+    this.tr = tr;
+    this.t_running_mean = t_running_mean;
+    this.v = v;
   }
 }

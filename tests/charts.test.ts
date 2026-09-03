@@ -11,6 +11,7 @@ import {
 // `psychrometricZone`, so they are not on the package's public surface. These
 // are white-box tests of the solvers themselves, hence the deep import.
 import { bisect, secant } from "../src/charts/root_finding.js";
+import { pmv_ppd } from "../src/models/index.js";
 import type { PmvPpdStandard } from "../src/models/index.js";
 
 // The chart module's claim is that it reproduces the geometry the CBE Thermal
@@ -103,6 +104,58 @@ describe("psychrometric comfort zone", () => {
     // reproduced; the report is what tells a caller not to trust the point.
     expect(zone.unsolved[0]!.db).toBe(NO_ROOT_FOUND);
     expect(zone.coolEdge[0]!.db).toBe(NO_ROOT_FOUND);
+  });
+
+  it("solves against tr = db when trFollowsDb is set", () => {
+    // The operative-temperature chart: every vertex must satisfy the PMV
+    // equation with tr taken from the x axis, not from options.tr. The tr
+    // passed in is deliberately far from the zone so a solve that still read
+    // it could not land on the boundary.
+    const epsilon = 0.001;
+    const zone = psychrometricZone({
+      tr: 50,
+      vr: 0.13,
+      met: 1.1,
+      clo: 0.5,
+      standard: "ISO",
+      trFollowsDb: true,
+      epsilon,
+    });
+    expect(zone.unsolved).toEqual([]);
+    for (const edge of [zone.coolEdge, zone.warmEdge]) {
+      for (const { db, rh } of edge) {
+        const { pmv } = pmv_ppd(db, db, 0.13, rh, 1.1, 0.5, 0, "ISO", {
+          limit_inputs: false,
+          round_output: false,
+        });
+        expect(Math.abs(Math.abs(pmv) - zone.pmvLimit)).toBeLessThan(epsilon);
+      }
+    }
+  });
+
+  it("leaves the default zone reading options.tr", () => {
+    // Guards the switch itself: the same call without the flag must not
+    // reproduce the operative geometry.
+    const conditions = {
+      vr: 0.13,
+      met: 1.1,
+      clo: 0.5,
+      standard: "ISO",
+    } as const;
+    const following = psychrometricZone({
+      ...conditions,
+      tr: 50,
+      trFollowsDb: true,
+    });
+    const fixed = psychrometricZone({ ...conditions, tr: 50 });
+    expect(fixed.coolEdge[0]!.db).not.toBeCloseTo(following.coolEdge[0]!.db, 3);
+    // With tr already equal to the solved db there is nothing left to differ.
+    const matched = psychrometricZone({
+      ...conditions,
+      tr: 25,
+      trFollowsDb: true,
+    });
+    expect(matched.coolEdge[0]!.db).toBeCloseTo(following.coolEdge[0]!.db, 9);
   });
 
   it("stays quiet unless asked not to", () => {

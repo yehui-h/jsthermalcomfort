@@ -1,4 +1,5 @@
 import {
+  UNIT_SYSTEMS,
   round,
   units_converter,
   validateInputs,
@@ -14,7 +15,7 @@ const COOLING_EFFECT_SCHEMA = {
   met: { type: "number" },
   clo: { type: "number" },
   wme: { type: "number" },
-  units: { enum: ["SI", "IP"] },
+  units: { enum: UNIT_SYSTEMS },
 } satisfies ValidationSchema;
 
 /**

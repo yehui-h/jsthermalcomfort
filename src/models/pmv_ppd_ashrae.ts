@@ -1,7 +1,9 @@
 import { ashraeThermalSensation } from "../reference/bands.js";
+import { ashrae55PmvLimits } from "../reference/limits.js";
+import { standards } from "../reference/standards.js";
 import { LabeledInterval } from "../reference/interval.js";
 import { pmv_ppd } from "./pmv_ppd.js";
-import { validateInputs } from "../utilities/utilities.js";
+import { UNIT_SYSTEMS, validateInputs } from "../utilities/utilities.js";
 import type { ValidationSchema } from "../utilities/utilities.js";
 import type { PmvPpdKwargs, PmvPpdResult } from "./pmv_ppd.js";
 
@@ -13,7 +15,7 @@ const PMV_PPD_ASHRAE_SCHEMA = {
   met: { type: "number" },
   clo: { type: "number" },
   wme: { type: "number" },
-  units: { enum: ["SI", "IP"], required: false },
+  units: { enum: UNIT_SYSTEMS, required: false },
   limit_inputs: { type: "boolean", required: false },
   airspeed_control: { type: "boolean", required: false },
   round_output: { type: "boolean", required: false },
@@ -87,6 +89,9 @@ pmv_ppd_ashrae.description =
   "Predicted Mean Vote and Predicted Percentage of Dissatisfied per ASHRAE 55.";
 /** Thermal sensation scale, right-closed: `(-1.5, -0.5]` is "Slightly Cool". */
 pmv_ppd_ashrae.tsv = ashraeThermalSensation;
+pmv_ppd_ashrae.standard = standards.ashrae55;
+/** The ranges outside which this model warns and, by default, returns NaN. */
+pmv_ppd_ashrae.limits = ashrae55PmvLimits;
 /** ASHRAE 55 considers a space compliant while |PMV| stays under this. */
 pmv_ppd_ashrae.COMPLIANCE_LIMIT = 0.5;
 /**

@@ -337,6 +337,15 @@ describe("adaptive comfort ranges", () => {
       out.acceptability_80,
       out.acceptability_90,
     ]);
+
+    // Each label has to sit on its own numbers, not merely appear in the right
+    // order: the two bands differ only in width, so checking labels alone would
+    // pass with 80% and 90% swapped. v = 0.1 keeps the cooling effect at zero.
+    for (const [index, offset] of adaptiveAshraeOffsets.entries()) {
+      const band = cmf!.intervals[index]!;
+      expect(band.low).toBeCloseTo(out.tmp_cmf + offset.low, 10);
+      expect(band.high).toBeCloseTo(out.tmp_cmf + offset.up, 10);
+    }
   });
 
   it("carries EN's three nested, asymmetric categories", () => {

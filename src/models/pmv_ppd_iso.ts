@@ -1,6 +1,8 @@
 import { isoThermalSensation } from "../reference/bands.js";
+import { iso7730PmvLimits } from "../reference/limits.js";
+import { standards } from "../reference/standards.js";
 import { pmv_ppd } from "./pmv_ppd.js";
-import { validateInputs } from "../utilities/utilities.js";
+import { UNIT_SYSTEMS, validateInputs } from "../utilities/utilities.js";
 import type { UnitSystem, ValidationSchema } from "../utilities/utilities.js";
 
 /** Optional overrides accepted by {@link pmv_ppd_iso}. */
@@ -29,7 +31,7 @@ const PMV_PPD_ISO_SCHEMA = {
   met: { type: "number" },
   clo: { type: "number" },
   wme: { type: "number" },
-  units: { enum: ["SI", "IP"], required: false },
+  units: { enum: UNIT_SYSTEMS, required: false },
   limit_inputs: { type: "boolean", required: false },
   round_output: { type: "boolean", required: false },
 } satisfies ValidationSchema;
@@ -105,3 +107,6 @@ pmv_ppd_iso.description =
   "Predicted Mean Vote and Predicted Percentage of Dissatisfied per ISO 7730.";
 /** Thermal sensation scale, left-closed: `[-1.5, -0.5)` is "Slightly Cool". */
 pmv_ppd_iso.tsv = isoThermalSensation;
+pmv_ppd_iso.standard = standards.iso7730;
+/** The ranges outside which this model warns and, by default, returns NaN. */
+pmv_ppd_iso.limits = iso7730PmvLimits;

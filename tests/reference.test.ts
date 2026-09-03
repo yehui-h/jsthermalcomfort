@@ -3,17 +3,29 @@ import { describe, expect, it } from "vitest";
 import {
   adaptive_ashrae,
   adaptive_en,
+  check_standard_compliance,
   pmv_ppd_ashrae,
   pmv_ppd_iso,
 } from "../src/index.js";
 import {
   LabeledInterval,
   adaptiveAshraeOffsets,
+  adaptiveCoolingEffectMinOperative,
+  adaptiveCoolingEffectSteps,
   adaptiveEnOffsets,
+  ashrae55AdaptiveLimits,
+  ashrae55PmvLimits,
   ashraeThermalSensation,
+  iso7730PmvLimits,
   isoThermalSensation,
   scaleFromEdges,
+  standards,
 } from "../src/reference/index.js";
+import type { ApplicabilityLimit } from "../src/reference/index.js";
+import { quantities } from "../src/io/quantity.js";
+// `@internal`, reached directly: it is the one reader of the cooling-effect
+// table and the only way to check the table describes what the model does.
+import { get_ce } from "../src/models/adaptive_en.js";
 
 // The reference tables are the package's answer to "where do the thresholds
 // live". These tests pin them against pythermalcomfort 4.4.2 so a future edit
@@ -165,6 +177,28 @@ describe("adaptive offsets", () => {
     }
   });
 
+  it("steps the cooling effect exactly where the table says", () => {
+    // `get_ce` reads this table, so the two cannot disagree; what still needs
+    // pinning is the table itself against pythermalcomfort 4.4.2, and that the
+    // steps are read as "the last one the air speed reaches".
+    expect(adaptiveCoolingEffectSteps).toEqual([
+      { minAirSpeed: 0.6, coolingEffect: 1.2 },
+      { minAirSpeed: 0.9, coolingEffect: 1.8 },
+      { minAirSpeed: 1.2, coolingEffect: 2.2 },
+    ]);
+    expect(adaptiveCoolingEffectMinOperative).toBe(25.0);
+
+    const hot = adaptiveCoolingEffectMinOperative;
+    expect(get_ce(0.59, hot)).toBe(0);
+    for (const { minAirSpeed, coolingEffect } of adaptiveCoolingEffectSteps) {
+      // The edge is inclusive, and the step holds right up to the next one.
+      expect(get_ce(minAirSpeed, hot)).toBe(coolingEffect);
+      expect(get_ce(minAirSpeed + 0.29, hot)).toBe(coolingEffect);
+      // Below the operative threshold nothing applies, however fast the air.
+      expect(get_ce(minAirSpeed, hot - 0.01)).toBe(0);
+    }
+  });
+
   it("reproduces the model's own bounds", () => {
     // The offsets are only useful if they actually describe what the model
     // returns; derive the bounds from tmp_cmf and check against the real call.
@@ -227,5 +261,88 @@ describe("metadata attached to the model functions", () => {
     expect(pmv_ppd_ashrae.compliance.contains(0.5)).toBe(false);
     expect(pmv_ppd_ashrae.compliance.contains(-0.5)).toBe(false);
     expect(pmv_ppd_ashrae.compliance.contains(0.49)).toBe(true);
+  });
+});
+
+describe("applicability limits", () => {
+  // The tables are only "the single source" if the check functions actually
+  // read them. Probing each edge proves it: nudge a value 0.01 outside its row
+  // and a warning must appear; the edge itself must stay silent.
+  const PROBE = 0.01;
+
+  const probe = (limit: ApplicabilityLimit, value: number): string[] =>
+    limit.quantity === quantities.t_running_mean
+      ? // The running-mean row is checked inside adaptive_ashrae, not by
+        // check_standard_compliance, so it is probed through the model.
+        [...adaptive_ashrae_warnings(value)]
+      : check_standard_compliance(standardFor(limit), {
+          [limit.quantity.key]: value,
+        });
+
+  const adaptive_ashrae_warnings = (t_running_mean: number): string[] => {
+    // tmp_cmf is NaN exactly when a warning fired, and every other input here
+    // is mid-range, so NaN isolates the running-mean check.
+    const { tmp_cmf } = adaptive_ashrae(25, 25, t_running_mean, 0.1);
+    return Number.isNaN(tmp_cmf)
+      ? ["ASHRAE running mean outdoor temperature applicability limits"]
+      : [];
+  };
+
+  const standardFor = (limit: ApplicabilityLimit): "ISO" | "ASHRAE" =>
+    iso7730PmvLimits.includes(limit) ? "ISO" : "ASHRAE";
+
+  const TABLES: readonly [string, readonly ApplicabilityLimit[]][] = [
+    ["iso7730PmvLimits", iso7730PmvLimits],
+    ["ashrae55PmvLimits", ashrae55PmvLimits],
+    ["ashrae55AdaptiveLimits", ashrae55AdaptiveLimits],
+  ];
+
+  for (const [name, table] of TABLES) {
+    describe(name, () => {
+      it.each(table.map((limit) => [limit.quantity.key, limit] as const))(
+        "%s warns just outside its range and not at the edges",
+        (_key, limit) => {
+          expect(probe(limit, limit.min - PROBE).length).toBeGreaterThan(0);
+          expect(probe(limit, limit.max + PROBE).length).toBeGreaterThan(0);
+          expect(probe(limit, limit.min)).toEqual([]);
+          expect(probe(limit, limit.max)).toEqual([]);
+        },
+      );
+    });
+  }
+
+  it("records the ISO met discrepancy rather than silently picking a side", () => {
+    // The code checks < 0; the message says 0.8. Both are in the table, which
+    // is the only place a consumer can see the two disagree.
+    const met = iso7730PmvLimits.find((l) => l.quantity === quantities.met)!;
+    expect(met.min).toBe(0);
+    expect(met.warning).toContain("between 0.8 and 4.0 met");
+    expect(check_standard_compliance("ISO", { met: 0.5 })).toEqual([]);
+  });
+
+  it("shares the ASHRAE rows between the PMV and adaptive tables", () => {
+    // Identity, not equality: "v same as ASHRAE" means the same object.
+    for (const q of [quantities.tdb, quantities.tr, quantities.v]) {
+      expect(ashrae55AdaptiveLimits.find((l) => l.quantity === q)).toBe(
+        ashrae55PmvLimits.find((l) => l.quantity === q),
+      );
+    }
+  });
+});
+
+describe("standards attached to the model functions", () => {
+  it.each([
+    ["pmv_ppd_iso", pmv_ppd_iso, standards.iso7730],
+    ["pmv_ppd_ashrae", pmv_ppd_ashrae, standards.ashrae55],
+    ["adaptive_ashrae", adaptive_ashrae, standards.ashrae55],
+    ["adaptive_en", adaptive_en, standards.en16798],
+  ])("%s carries the standards member itself", (_name, model, expected) => {
+    expect(model.standard).toBe(expected);
+  });
+
+  it("attaches the matching limits table where one exists", () => {
+    expect(pmv_ppd_iso.limits).toBe(iso7730PmvLimits);
+    expect(pmv_ppd_ashrae.limits).toBe(ashrae55PmvLimits);
+    expect(adaptive_ashrae.limits).toBe(ashrae55AdaptiveLimits);
   });
 });

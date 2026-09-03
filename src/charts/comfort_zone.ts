@@ -56,8 +56,17 @@ export interface PsychrometricZone {
 
 /** Arguments to {@link psychrometricZone}. */
 export interface PsychrometricZoneOptions {
-  /** Mean radiant temperature, [°C]. */
+  /** Mean radiant temperature, [°C]. Ignored when {@link PsychrometricZoneOptions.trFollowsDb} is `true`. */
   readonly tr: number;
+  /**
+   * Solve with `tr` equal to the dry-bulb temperature at every point, so the
+   * x axis is operative temperature rather than air temperature. Default
+   * `false`.
+   *
+   * This is the geometry of the CBE Thermal Comfort Tool's operative-temperature
+   * psychrometric chart. `tr` is not read at all in this mode.
+   */
+  readonly trFollowsDb?: boolean;
   /**
    * Relative air speed, [m/s] — `v_relative` already applied, as everywhere
    * else in this package. The CBE tool applies it inside its PMV wrapper
@@ -178,6 +187,7 @@ function trace(options: PsychrometricZoneOptions): PsychrometricZone {
     epsilon = 0.001,
     p_atm = 101325,
     correctKnownDefects = false,
+    trFollowsDb = false,
   } = options;
 
   const unsolved: UnsolvedRow[] = [];
@@ -197,7 +207,7 @@ function trace(options: PsychrometricZoneOptions): PsychrometricZone {
       // unreachable target would surface as an exception instead of a report.
       if (!Number.isFinite(db)) return NaN;
       return (
-        pmv_ppd(db, tr, vr, rh, met, clo, wme, standard, {
+        pmv_ppd(db, trFollowsDb ? db : tr, vr, rh, met, clo, wme, standard, {
           limit_inputs: false,
           round_output: false,
         }).pmv - target

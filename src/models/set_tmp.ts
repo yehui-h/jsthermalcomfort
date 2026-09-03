@@ -1,5 +1,6 @@
 import { two_nodes } from "../models/two_nodes.js";
 import {
+  UNIT_SYSTEMS,
   check_standard_compliance,
   round,
   units_converter,
@@ -18,7 +19,7 @@ const SET_TMP_SCHEMA = {
   body_surface_area: { type: "number", required: false },
   p_atm: { type: "number", required: false },
   body_position: { enum: ["sitting", "standing"] },
-  units: { enum: ["SI", "IP"] },
+  units: { enum: UNIT_SYSTEMS },
   limit_inputs: { type: "boolean" },
   calculate_ce: { type: "boolean", required: false },
   round: { type: "boolean", required: false },

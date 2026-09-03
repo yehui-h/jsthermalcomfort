@@ -1,6 +1,12 @@
-import { adaptiveEnOffsets } from "../reference/offsets.js";
+import {
+  adaptiveCoolingEffectMinOperative,
+  adaptiveCoolingEffectSteps,
+  adaptiveEnOffsets,
+} from "../reference/offsets.js";
+import { standards } from "../reference/standards.js";
 import { t_o } from "../psychrometrics/t_o.js";
 import {
+  UNIT_SYSTEMS,
   units_converter,
   round,
   validateInputs,
@@ -12,7 +18,7 @@ const ADAPTIVE_EN_SCHEMA = {
   tr: { type: "number" },
   t_running_mean: { type: "number" },
   v: { type: "number" },
-  units: { enum: ["SI", "IP"] },
+  units: { enum: UNIT_SYSTEMS },
   limit_inputs: { type: "boolean" },
   round_output: { type: "boolean", required: false },
 } satisfies ValidationSchema;
@@ -122,12 +128,12 @@ export function adaptive_en(
   const standard = "ISO";
 
   if (units.toLowerCase() == "ip") {
-    ({
+    ({ tdb, tr, t_running_mean, v } = units_converter({
       tdb,
       tr,
-      tmp_running_mean: t_running_mean,
+      t_running_mean,
       v,
-    } = units_converter({ tdb, tr, tmp_running_mean: t_running_mean, v }));
+    }));
   }
 
   const to = t_o(tdb, tr, v, standard);
@@ -141,12 +147,16 @@ export function adaptive_en(
     if (!trm_valid) t_cmf = NaN;
   }
 
-  let t_cmf_i_lower = t_cmf - 3.0;
-  let t_cmf_ii_lower = t_cmf - 4.0;
-  let t_cmf_iii_lower = t_cmf - 5.0;
-  let t_cmf_i_upper = t_cmf + 2.0 + ce;
-  let t_cmf_ii_upper = t_cmf + 3.0 + ce;
-  let t_cmf_iii_upper = t_cmf + 4.0 + ce;
+  // Category widths come from the reference table, not from literals repeated
+  // here: `adaptiveEnOffsets` is what `adaptive_en.offsets` publishes and what
+  // the I/O and chart layers label these bounds with.
+  const [catI, catII, catIII] = adaptiveEnOffsets;
+  let t_cmf_i_lower = t_cmf + catI.low;
+  let t_cmf_ii_lower = t_cmf + catII.low;
+  let t_cmf_iii_lower = t_cmf + catIII.low;
+  let t_cmf_i_upper = t_cmf + catI.up + ce;
+  let t_cmf_ii_upper = t_cmf + catII.up + ce;
+  let t_cmf_iii_upper = t_cmf + catIII.up + ce;
 
   const acceptability_i = t_cmf_i_lower <= to && to <= t_cmf_i_upper;
   const acceptability_ii = t_cmf_ii_lower <= to && to <= t_cmf_ii_upper;
@@ -206,11 +216,13 @@ export function adaptive_en(
 }
 /**
  * The EN 16798-1 cooling effect of elevated air speed, as a step function of
- * air speed. Zero below 0.6 m/s or below 25 °C operative.
+ * air speed. Zero below the first step or below the minimum operative
+ * temperature.
  *
- * The same three steps are published as data in
- * `adaptiveCoolingEffectSteps` (`src/reference/offsets.ts`); this ladder is
- * the source, that table is the mirror. Change one and change the other.
+ * The steps are `adaptiveCoolingEffectSteps` (`src/reference/offsets.ts`) and
+ * the threshold is `adaptiveCoolingEffectMinOperative`. Both are read here
+ * rather than repeated, so the published table and the chart kink that uses it
+ * cannot disagree with what this returns.
  *
  * @param v - air speed, [m/s]
  * @param to - operative temperature, [°C]
@@ -219,15 +231,12 @@ export function adaptive_en(
  * @internal
  */
 export function get_ce(v: number, to: number): number {
+  if (to < adaptiveCoolingEffectMinOperative) return 0;
+  // The table is ascending, so the last step the air speed reaches wins; below
+  // the first one nothing does and the effect stays zero.
   let ce = 0;
-  if (v >= 0.6 && to >= 25.0) {
-    if (v < 0.9) {
-      ce = 1.2;
-    } else if (v < 1.2) {
-      ce = 1.8;
-    } else {
-      ce = 2.2;
-    }
+  for (const step of adaptiveCoolingEffectSteps) {
+    if (v >= step.minAirSpeed) ce = step.coolingEffect;
   }
   return ce;
 }
@@ -238,3 +247,6 @@ adaptive_en.description =
   "Adaptive comfort temperature and category I/II/III ranges per EN 16798-1.";
 /** Offsets from `tmp_cmf`. Asymmetric and nested: I \u2282 II \u2282 III. */
 adaptive_en.offsets = adaptiveEnOffsets;
+// No `.limits`: EN 16798-1 has no applicability table in this package —
+// `adaptive_en` calls no compliance check at all.
+adaptive_en.standard = standards.en16798;

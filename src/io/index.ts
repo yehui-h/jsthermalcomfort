@@ -49,5 +49,5 @@ export {
 } from "./classes_return.js";
 export type { Outcome } from "./classes_return.js";
 export type { ComfortInterval, Measure } from "./measure.js";
-export { quantities, unitFor } from "./quantity.js";
+export { quantities, quantityFor, unitFor } from "./quantity.js";
 export type { Quantity, QuantityKind } from "./quantity.js";
