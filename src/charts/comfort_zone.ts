@@ -1,6 +1,6 @@
 import { pmv_ppd } from "../models/pmv_ppd.js";
 import { psy_ta_rh } from "../psychrometrics/psy_ta_rh.js";
-import { NO_ROOT_FOUND, bisect, secant } from "./root_finding.js";
+import { NO_ROOT_FOUND, bisect, secant } from "../utilities/root_finding.js";
 import type { PmvPpdStandard } from "../models/pmv_ppd.js";
 
 /** A point on a psychrometric chart, in SI units. */

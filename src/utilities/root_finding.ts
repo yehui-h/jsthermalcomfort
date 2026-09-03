@@ -8,6 +8,10 @@
  * published chart exactly. Both are kept faithful to the original, including
  * the parts that are wrong (see {@link secant}); the corrections are opt-in.
  *
+ * Kept in `utilities/` rather than `charts/` for the same reason as `round.ts`:
+ * `psychrometrics/` needs {@link bisect} too, and `charts/` already imports
+ * `psychrometrics/`.
+ *
  * @module
  */
 

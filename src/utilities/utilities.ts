@@ -290,9 +290,10 @@ const PRESSURE: Conversion = {
 
 /**
  * How each kind of quantity converts. A kind absent from here reads the same in
- * both systems — `percentage`, `metabolicRate`, `clothingInsulation` and
- * `thermalSensation` are all dimensionless or already system-independent, which
- * is exactly what their equal `siUnit`/`ipUnit` in `quantities` says.
+ * both systems — `percentage`, `metabolicRate`, `clothingInsulation`,
+ * `thermalSensation`, `humidityRatio` and `pressure` are all dimensionless or
+ * already system-independent, which is exactly what their equal
+ * `siUnit`/`ipUnit` in `quantities` says.
  */
 const BY_KIND: Partial<Record<QuantityKind, Conversion>> = {
   temperature: TEMPERATURE,

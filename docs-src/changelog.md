@@ -2,6 +2,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Added `rh_from_dew_point`, `rh_from_humidity_ratio`, `rh_from_vapour_pressure` and `rh_from_wet_bulb` to `psychrometrics`: the inverses of the `t_dp`, `hr`, `p_vap` and `t_wb` that `psy_ta_rh` returns, SI only, clamped to `[0, 100]`.
+- Added the `hr`, `t_dp`, `t_wb` and `p_vap` quantities to `io.quantities` (`hr` under the new `QuantityKind` `"humidityRatio"`). `quantities.p_atm` now reads `"Pa"` rather than `"kPa"`, which is the unit `psy_ta_rh`, `set_tmp` and `psychrometricZone` actually take.
 - Removed the `ANKLE_DRAFT`, `FAN_HEATWAVES`, `7933-2004` and `7933-2023` standards from `check_standard_compliance` and from `Standard`, together with the `rh` and `p_a` fields of `ComplianceKwargs` that only they read. The models they served (`ankle_draft`, `use_fans_heatwaves`, `phs`) are no longer part of this package; the checks return with them.
 - Removed `transpose_sharp_altitude` (a `solar_gain` helper with no remaining caller) and the unused `roundArray` export of `two_nodes`.
 - Removed the `PmvPpdIso` type: `pmv_ppd_iso` returns `PmvPpdResult`. `PmvPpdIsoKwargs` is now `Omit<PmvPpdKwargs, "airspeed_control">`, which is what it always was in substance.

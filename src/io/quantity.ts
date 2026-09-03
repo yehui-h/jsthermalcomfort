@@ -15,7 +15,8 @@ export type QuantityKind =
   | "metabolicRate"
   | "clothingInsulation"
   | "thermalSensation"
-  | "pressure";
+  | "pressure"
+  | "humidityRatio";
 
 /**
  * A physical quantity: what a number *is*, independent of any one result.
@@ -106,15 +107,45 @@ export const quantities = table({
     siUnit: "%",
     ipUnit: "%",
   },
+  hr: {
+    key: "hr",
+    kind: "humidityRatio",
+    label: "Humidity ratio",
+    siUnit: "kg/kg",
+    ipUnit: "kg/kg",
+  },
+  t_dp: {
+    key: "t_dp",
+    kind: "temperature",
+    label: "Dew-point temperature",
+    siUnit: "°C",
+    ipUnit: "°F",
+  },
+  t_wb: {
+    key: "t_wb",
+    kind: "temperature",
+    label: "Wet-bulb temperature",
+    siUnit: "°C",
+    ipUnit: "°F",
+  },
+  p_vap: {
+    key: "p_vap",
+    kind: "pressure",
+    label: "Water vapour partial pressure",
+    siUnit: "Pa",
+    ipUnit: "Pa",
+  },
   p_atm: {
     key: "p_atm",
     kind: "pressure",
     label: "Atmospheric pressure",
-    // `units_converter`'s only pressure branch converts atm to Pa, which is not
-    // an IP/SI pair at all, so there is no IP spelling to align with. Equal
-    // units mean the quantity does not convert, exactly as for met and clo.
-    siUnit: "kPa",
-    ipUnit: "kPa",
+    // Pascals, because that is what `psy_ta_rh`, `set_tmp` and
+    // `psychrometricZone` take. `units_converter`'s only pressure branch
+    // converts atm to Pa, which is not an IP/SI pair at all, so there is no IP
+    // spelling to align with. Equal units mean the quantity does not convert,
+    // exactly as for met and clo.
+    siUnit: "Pa",
+    ipUnit: "Pa",
   },
   met: {
     key: "met",

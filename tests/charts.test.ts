@@ -10,7 +10,7 @@ import {
 // `bisect` and `secant` are module-internal: they exist to serve
 // `psychrometricZone`, so they are not on the package's public surface. These
 // are white-box tests of the solvers themselves, hence the deep import.
-import { bisect, secant } from "../src/charts/root_finding.js";
+import { bisect, secant } from "../src/utilities/root_finding.js";
 import { pmv_ppd } from "../src/models/index.js";
 import type { PmvPpdStandard } from "../src/models/index.js";
 
