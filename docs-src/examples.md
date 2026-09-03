@@ -63,7 +63,7 @@ labels it come from the same place.
 import { pmv_ppd_ashrae, pmv_ppd_iso } from "jsthermalcomfort";
 
 pmv_ppd_iso.tsv.labelFor(-0.8); // "Slightly Cool"
-pmv_ppd_iso.tsv.classify(-0.8).notation; // "[-1.5, -0.5)"
+pmv_ppd_iso.tsv.classify(-0.8).upper; // { value: -0.5, inclusive: false }
 pmv_ppd_ashrae.COMPLIANCE_LIMIT; // 0.5
 ```
 

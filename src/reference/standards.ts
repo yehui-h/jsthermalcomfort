@@ -3,8 +3,9 @@
  *
  * Deliberately not named `Standard`: `check_standard_compliance` already has a
  * type by that name (`src/utilities/utilities.ts`) whose members are dispatch
- * keys — `FAN_HEATWAVES` and `ANKLE_DRAFT` are checks, not standards a model
- * belongs to. The two are different sets and must not be merged.
+ * keys for the applicability checks, not standards a model belongs to —
+ * EN 16798-1 has no check at all. The two are different sets and must not be
+ * merged.
  *
  * @public
  */

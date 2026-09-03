@@ -74,8 +74,10 @@ function sameValue(
 
 // The recorded cases are replayed positionally; the fixture, not the type
 // system, is what pins each signature.
-type AnyModelFn = (...args: readonly never[]) => unknown;
-const fn = lib as unknown as Record<string, AnyModelFn | undefined>;
+const call = lib as unknown as Record<
+  string,
+  (...args: readonly unknown[]) => unknown
+>;
 
 /**
  * Every field any recorded case can carry. Declared as required so invokers can
@@ -103,26 +105,18 @@ interface CaseInputs {
 /** Replays one recorded case against the current implementation. */
 const invokers: Record<string, (i: CaseInputs) => unknown> = {
   pmv_ppd_iso: (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .pmv_ppd_iso!(i.tdb, i.tr, i.vr, i.rh, i.met, i.clo, i.wme),
+    call.pmv_ppd_iso!(i.tdb, i.tr, i.vr, i.rh, i.met, i.clo, i.wme),
   pmv_ppd_ashrae: (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .pmv_ppd_ashrae!(i.tdb, i.tr, i.vr, i.rh, i.met, i.clo, i.wme),
+    call.pmv_ppd_ashrae!(i.tdb, i.tr, i.vr, i.rh, i.met, i.clo, i.wme),
   "pmv_ppd_iso.kwargs": (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .pmv_ppd_iso!(i.tdb, i.tdb, 0.1, 50, 1.2, 0.5, 0, i.kwargs),
+    call.pmv_ppd_iso!(i.tdb, i.tdb, 0.1, 50, 1.2, 0.5, 0, i.kwargs),
   "pmv_ppd_ashrae.kwargs": (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .pmv_ppd_ashrae!(i.tdb, i.tdb, 0.1, 50, 1.2, 0.5, 0, i.kwargs),
+    call.pmv_ppd_ashrae!(i.tdb, i.tdb, 0.1, 50, 1.2, 0.5, 0, i.kwargs),
   adaptive_ashrae: (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .adaptive_ashrae!(i.tdb, i.tr, i.t_running_mean, i.v),
-  adaptive_en: (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .adaptive_en!(i.tdb, i.tr, i.t_running_mean, i.v),
+    call.adaptive_ashrae!(i.tdb, i.tr, i.t_running_mean, i.v),
+  adaptive_en: (i) => call.adaptive_en!(i.tdb, i.tr, i.t_running_mean, i.v),
   "adaptive_ashrae.flags": (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .adaptive_ashrae!(
+    call.adaptive_ashrae!(
       25,
       25,
       i.trm,
@@ -132,8 +126,7 @@ const invokers: Record<string, (i: CaseInputs) => unknown> = {
       i.round_output,
     ),
   "adaptive_en.flags": (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .adaptive_en!(
+    call.adaptive_en!(
       25,
       25,
       i.trm,
@@ -142,33 +135,17 @@ const invokers: Record<string, (i: CaseInputs) => unknown> = {
       i.limit_inputs,
       i.round_output,
     ),
-  "t_o.iso": (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .t_o!(i.tdb, i.tr, i.v, "ISO"),
-  "t_o.ashrae": (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .t_o!(i.tdb, i.tr, i.v, "ASHRAE"),
-  psy_ta_rh: (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .psy_ta_rh!(i.tdb, i.rh),
-  v_relative: (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .v_relative!(i.v, i.met),
-  "clo_dynamic.ashrae": (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .clo_dynamic!(i.clo, i.met, "ASHRAE"),
-  "clo_dynamic.iso": (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .clo_dynamic!(i.clo, i.met, "ISO"),
+  "t_o.iso": (i) => call.t_o!(i.tdb, i.tr, i.v, "ISO"),
+  "t_o.ashrae": (i) => call.t_o!(i.tdb, i.tr, i.v, "ASHRAE"),
+  psy_ta_rh: (i) => call.psy_ta_rh!(i.tdb, i.rh),
+  v_relative: (i) => call.v_relative!(i.v, i.met),
+  "clo_dynamic.ashrae": (i) => call.clo_dynamic!(i.clo, i.met, "ASHRAE"),
+  "clo_dynamic.iso": (i) => call.clo_dynamic!(i.clo, i.met, "ISO"),
   cooling_effect: (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .cooling_effect!(i.tdb, i.tdb, i.vr, 50, 1.2, 0.5, 0),
-  set_tmp: (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .set_tmp!(i.tdb, i.tdb, i.vr, 50, 1.2, 0.5),
+    call.cooling_effect!(i.tdb, i.tdb, i.vr, 50, 1.2, 0.5, 0),
+  set_tmp: (i) => call.set_tmp!(i.tdb, i.tdb, i.vr, 50, 1.2, 0.5),
   check_standard_compliance: (i) =>
-    (fn as Record<string, ((...a: readonly unknown[]) => unknown) | undefined>)
-      .check_standard_compliance!(i.standard, {
+    call.check_standard_compliance!(i.standard, {
       tdb: i.tdb,
       tr: i.tdb,
       v: 0.1,
@@ -206,7 +183,7 @@ describe(`parity with jsthermalcomfort@${(baseline as { referenceVersion: string
   it.each(groups)("%s", (model) => {
     const exportName = requiredExport[model] ?? model;
     expect(
-      typeof fn[exportName],
+      typeof call[exportName],
       `${exportName} is not exported — the 1.4.0 surface is incomplete`,
     ).toBe("function");
 

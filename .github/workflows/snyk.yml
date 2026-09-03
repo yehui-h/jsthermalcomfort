@@ -28,8 +28,3 @@ jobs:
         uses: snyk/actions/node@master
         with:
           command: monitor
-
-      - name: Skip Snyk for fork pull requests (no secrets)
-        if: ${{ env.SNYK_TOKEN == '' }}
-        run: |
-          echo "Snyk scan skipped: SNYK_TOKEN is not available in this context (likely a pull request from a fork)."

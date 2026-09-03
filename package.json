@@ -16,7 +16,7 @@
   "types": "./lib/cjs/types/index.d.ts",
   "scripts": {
     "clean": "rm -rf ./lib ./models ./psychrometrics ./utilities ./reference ./io ./charts",
-    "typecheck": "tsc -p ./configs/tsconfig.check.json",
+    "typecheck": "tsc",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:cjs-marker && npm run build:stubs",
@@ -30,7 +30,7 @@
     "format": "prettier . --write",
     "check:format": "prettier . --check",
     "prepack": "npm run build",
-    "prepare": "husky",
+    "prepare": "git config core.hooksPath .githooks || true",
     "build:stubs": "node scripts/build-subpath-stubs.mjs"
   },
   "release": {
@@ -64,8 +64,6 @@
     "@arethetypeswrong/cli": "0.18.5",
     "@eslint/js": "^10.0.1",
     "eslint": "^10.9.1",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
     "prettier": "^3.9.6",
     "publint": "^0.3.24",
     "typedoc": "^0.28.20",
@@ -148,8 +146,5 @@
     },
     "./lib/*": "./lib/*",
     "./package.json": "./package.json"
-  },
-  "lint-staged": {
-    "*.{ts,js,json,md,yml}": "prettier --write"
   }
 }

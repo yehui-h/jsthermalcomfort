@@ -8,35 +8,12 @@ import {
   f_svv,
   valid_range,
   clo_typical_ensembles,
-  transpose_sharp_altitude,
   assertNumber,
   validateInputs,
   check_standard_compliance,
 } from "../../src/utilities/utilities";
-import { deep_close_to_array, deep_close_to_obj } from "../test_utilities";
 
 const DEFAULT_TOLERANCE = 0.01;
-
-describe("transpose_sharp_altitude", () => {
-  it.each([
-    { sharp: 0, altitude: 0, expected: [0, 90] },
-    { sharp: 0, altitude: 20, expected: [0, 70] },
-    { sharp: 0, altitude: 45, expected: [0, 45] },
-    { sharp: 0, altitude: 60, expected: [0, 30] },
-    { sharp: 90, altitude: 0, expected: [90, 0] },
-    { sharp: 90, altitude: 45, expected: [45, 0] },
-    { sharp: 90, altitude: 30, expected: [60, 0] },
-    { sharp: 135, altitude: 60, expected: [22.208, 20.705] },
-    { sharp: 120, altitude: 75, expected: [13.064, 7.435] },
-    { sharp: 150, altitude: 30, expected: [40.893, 48.59] },
-  ])(
-    "returns $expected when sharp is $sharp and altitude is $altitude",
-    ({ sharp, altitude, expected }) => {
-      const result = transpose_sharp_altitude(sharp, altitude);
-      deep_close_to_array(result, expected, 0.001);
-    },
-  );
-});
 
 describe("body_surface_area", () => {
   it.each([
@@ -219,8 +196,14 @@ describe("units_converter", () => {
   ])(
     "returns $expected when args are $args and from_units is $from_units",
     ({ args, from_units, expected }) => {
-      const result = units_converter(args, from_units);
-      deep_close_to_obj(result, expected, DEFAULT_TOLERANCE);
+      expect(units_converter(args, from_units)).toEqual(
+        Object.fromEntries(
+          Object.entries(expected).map(([key, value]) => [
+            key,
+            expect.closeTo(value, 2),
+          ]),
+        ),
+      );
     },
   );
 });
@@ -460,58 +443,6 @@ describe("validateInputs", () => {
 });
 
 describe("check_standard_compliance", () => {
-  // ---------------------------------------------------------------------------
-  // ISO 7933 (2004 and 2023)
-  // ---------------------------------------------------------------------------
-  describe("ISO 7933 compliance", () => {
-    // tdb=40, tr=40, v=0.3, p_a=2.5 kPa, met=272, clo=0.5 — valid for both standards
-    const base = { tdb: 40, tr: 40, v: 0.3, p_a: 2.5, met: 272, clo: 0.5 };
-
-    test("returns no warnings for valid inputs (2004)", () => {
-      expect(check_standard_compliance("7933-2004", base)).toHaveLength(0);
-    });
-
-    test("returns no warnings for valid inputs (2023)", () => {
-      expect(check_standard_compliance("7933-2023", base)).toHaveLength(0);
-    });
-
-    // Shared boundary conditions — limits are identical for both standards,
-    // so testing with one model is sufficient.
-    it.each([
-      ["tdb < 15 ºC", { tdb: 10 }],
-      ["tdb > 50 ºC", { tdb: 55 }],
-      ["tr < 0 ºC (fixed: was checking tr - tdb)", { tr: -5 }],
-      ["tr > 60 ºC (fixed: was checking tr - tdb)", { tr: 65 }],
-      ["v > 3 m/s", { v: 4 }],
-      ["met < 100 W/m²", { met: 50 }],
-      ["met > 450 W/m²", { met: 500 }],
-      ["clo < 0.1", { clo: 0.05 }],
-      ["clo > 1", { clo: 1.5 }],
-      ["p_a > 4.5 kPa", { p_a: 6.6 }],
-    ])("warns when %s", (_, override) => {
-      const warnings = check_standard_compliance("7933-2004", {
-        ...base,
-        ...override,
-      });
-      expect(warnings.length).toBeGreaterThan(0);
-    });
-
-    test("does not warn when tr < tdb but tr is within [0, 60]", () => {
-      // tr=20 < tdb=40; old buggy check (tr-tdb < 0) would have warned
-      expect(
-        check_standard_compliance("7933-2004", { ...base, tr: 20 }),
-      ).toHaveLength(0);
-    });
-
-    test("warns when p_a < 0.5 kPa for 2023 but not for 2004 (diverging lower bound)", () => {
-      // 2004 lower limit is 0 kPa; 2023 lower limit is 0.5 kPa
-      const input = { ...base, p_a: 0.2 };
-      expect(check_standard_compliance("7933-2004", input)).toHaveLength(0);
-      const warnings2023 = check_standard_compliance("7933-2023", input);
-      expect(warnings2023.length).toBeGreaterThan(0);
-      expect(warnings2023[0]).toMatch(/p_a/i);
-    });
-  });
   describe("ASHRAE airspeed_control branch", () => {
     it("flags v > 0.8 with low clo and met when occupant has no airspeed control", () => {
       const warnings = check_standard_compliance("ASHRAE", {
@@ -558,28 +489,6 @@ describe("check_standard_compliance", () => {
         clo: 0.5,
         airspeed_control: true,
       });
-      expect(warnings).toHaveLength(0);
-    });
-  });
-
-  describe("FAN_HEATWAVES branch", () => {
-    const valid = { tdb: 30, tr: 30, v: 1, rh: 50, met: 1, clo: 0.5 };
-
-    it.each([
-      { field: "tdb", value: 51 },
-      { field: "tr", value: 19 },
-      { field: "v", value: 5 },
-      { field: "rh", value: 101 },
-      { field: "met", value: 0.5 },
-      { field: "clo", value: 1.5 },
-    ])("flags an out-of-range $field of $value", ({ field, value }) => {
-      const kwargs = { ...valid, [field]: value };
-      const warnings = check_standard_compliance("FAN_HEATWAVES", kwargs);
-      expect(warnings.length).toBeGreaterThan(0);
-    });
-
-    it("returns no warnings when all fields are within range", () => {
-      const warnings = check_standard_compliance("FAN_HEATWAVES", valid);
       expect(warnings).toHaveLength(0);
     });
   });

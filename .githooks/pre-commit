@@ -1,0 +1,5 @@
+#!/bin/sh
+# Refuses a commit that would land unformatted files. Checks only the staged
+# set; `npm run format` fixes them.
+files=$(git diff --cached --name-only --diff-filter=ACM -- '*.ts' '*.js' '*.json' '*.md' '*.yml')
+[ -z "$files" ] || npx prettier --check $files

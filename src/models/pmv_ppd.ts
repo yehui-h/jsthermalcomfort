@@ -3,7 +3,6 @@ import {
   check_standard_compliance,
   round,
   units_converter,
-  valid_range,
   validateInputs,
 } from "../utilities/utilities.js";
 import type { UnitSystem, ValidationSchema } from "../utilities/utilities.js";
@@ -260,7 +259,7 @@ export function pmv_ppd_with_warnings(
   if (resolved.limit_inputs) {
     // ISO 7730 limits PMV applicability to [-2, 2]; ASHRAE 55 has no equivalent output bound
     const pmv_outside_iso_range =
-      standard === "ISO" && valid_range([pmv], [-2, 2]).includes(NaN);
+      standard === "ISO" && !(pmv >= -2 && pmv <= 2);
 
     if (isNaN(pmv) || compliance_warnings.length > 0 || pmv_outside_iso_range) {
       pmv = NaN;

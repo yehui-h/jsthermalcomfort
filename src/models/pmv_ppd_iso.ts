@@ -2,46 +2,20 @@ import { isoThermalSensation } from "../reference/bands.js";
 import { iso7730PmvLimits } from "../reference/limits.js";
 import { standards } from "../reference/standards.js";
 import { pmv_ppd } from "./pmv_ppd.js";
-import { UNIT_SYSTEMS, validateInputs } from "../utilities/utilities.js";
-import type { UnitSystem, ValidationSchema } from "../utilities/utilities.js";
+import type { PmvPpdKwargs, PmvPpdResult } from "./pmv_ppd.js";
 
-/** Optional overrides accepted by {@link pmv_ppd_iso}. */
-export interface PmvPpdIsoKwargs {
-  /** Unit system. Default `'SI'`. */
-  units?: UnitSystem;
-  /** Return NaN for out-of-range inputs. Default `true`. */
-  limit_inputs?: boolean;
-  /** Round `pmv` to 2 decimal places and `ppd` to 1. Default `true`. */
-  round_output?: boolean;
-}
-
-/** PMV and PPD on the ISO 7730 scale. */
-export interface PmvPpdIso {
-  /** Predicted Mean Vote on the ISO 7730 scale [-3, +3] */
-  pmv: number;
-  /** Predicted Percentage of Dissatisfied [%] */
-  ppd: number;
-}
-
-const PMV_PPD_ISO_SCHEMA = {
-  tdb: { type: "number" },
-  tr: { type: "number" },
-  vr: { type: "number" },
-  rh: { type: "number" },
-  met: { type: "number" },
-  clo: { type: "number" },
-  wme: { type: "number" },
-  units: { enum: UNIT_SYSTEMS, required: false },
-  limit_inputs: { type: "boolean", required: false },
-  round_output: { type: "boolean", required: false },
-} satisfies ValidationSchema;
+/**
+ * Optional overrides accepted by {@link pmv_ppd_iso}: everything
+ * {@link pmv_ppd} takes except the ASHRAE-only `airspeed_control`.
+ */
+export type PmvPpdIsoKwargs = Omit<PmvPpdKwargs, "airspeed_control">;
 
 /**
  * Calculate PMV and PPD in accordance with ISO 7730.
  *
- * Delegates to {@link pmv_ppd} with the standard fixed to `'ISO'`.
- * The ISO equation uses Fanger's original PMV formulation without the
- * ASHRAE cooling-effect adjustment.
+ * Delegates to {@link pmv_ppd} with the standard fixed to `'ISO'`, which also
+ * validates every argument. The ISO equation uses Fanger's original PMV
+ * formulation without the ASHRAE cooling-effect adjustment.
  *
  * ISO 7730 applies stricter input limits than ASHRAE 55. When
  * `limit_inputs` is true (the default), inputs outside the following
@@ -80,22 +54,7 @@ export function pmv_ppd_iso(
   clo: number,
   wme = 0,
   kwargs: PmvPpdIsoKwargs = {},
-): PmvPpdIso {
-  validateInputs(
-    {
-      tdb,
-      tr,
-      vr,
-      rh,
-      met,
-      clo,
-      wme,
-      units: kwargs.units?.toUpperCase(),
-      limit_inputs: kwargs.limit_inputs,
-      round_output: kwargs.round_output,
-    },
-    PMV_PPD_ISO_SCHEMA,
-  );
+): PmvPpdResult {
   return pmv_ppd(tdb, tr, vr, rh, met, clo, wme, "ISO", kwargs);
 }
 

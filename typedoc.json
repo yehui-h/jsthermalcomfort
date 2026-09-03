@@ -10,7 +10,6 @@
     "src/charts/index.ts"
   ],
   "entryPointStrategy": "expand",
-  "tsconfig": "configs/tsconfig.check.json",
   "out": "docs",
   "name": "jsthermalcomfort",
   "readme": "docs-src/overview.md",

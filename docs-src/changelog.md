@@ -1,5 +1,14 @@
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Removed the `ANKLE_DRAFT`, `FAN_HEATWAVES`, `7933-2004` and `7933-2023` standards from `check_standard_compliance` and from `Standard`, together with the `rh` and `p_a` fields of `ComplianceKwargs` that only they read. The models they served (`ankle_draft`, `use_fans_heatwaves`, `phs`) are no longer part of this package; the checks return with them.
+- Removed `transpose_sharp_altitude` (a `solar_gain` helper with no remaining caller) and the unused `roundArray` export of `two_nodes`.
+- Removed the `PmvPpdIso` type: `pmv_ppd_iso` returns `PmvPpdResult`. `PmvPpdIsoKwargs` is now `Omit<PmvPpdKwargs, "airspeed_control">`, which is what it always was in substance.
+- Removed `LabeledInterval.notation`; read `lower` / `upper` (`{ value, inclusive }`) instead.
+- `pmv_ppd_iso` and `pmv_ppd_ashrae` no longer validate their arguments before delegating to `pmv_ppd`, which validates them identically. The errors thrown are unchanged.
+- Tooling: the pre-commit hook is a plain git hook in `.githooks/` (`npm install` points `core.hooksPath` at it); `husky` and `lint-staged` are gone. `npm run typecheck` reads the root `tsconfig.json`.
+
 ## 1.4.0
 
 - Added `wind_chill_temperature(tdb, v)`, which returns the Wind Chill Temperature in °C using the North American formula adopted by the US National Weather Service and Environment Canada. Mirrors `pythermalcomfort` 3.9.3 `wind_chill_temperature`. Wind speed `v` is in km/h, which differs from the existing `wc()` Wind Chill Index that uses m/s. Returns `{ wct }`.

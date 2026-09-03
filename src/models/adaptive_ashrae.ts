@@ -119,7 +119,9 @@ export function adaptive_ashrae(
   limit_inputs = true,
   round_output = true,
 ): AdaptiveAshraeResult {
-  const r = adaptive_ashrae_with_warnings(
+  // Warnings are intentionally dropped here: this function's return shape is
+  // public API. The I/O layer calls the kernel directly to get them.
+  const { warnings, ...result } = adaptive_ashrae_with_warnings(
     tdb,
     tr,
     t_running_mean,
@@ -128,17 +130,7 @@ export function adaptive_ashrae(
     limit_inputs,
     round_output,
   );
-  // Warnings are intentionally dropped here: this function's return shape is
-  // public API. The I/O layer calls the kernel directly to get them.
-  return {
-    tmp_cmf: r.tmp_cmf,
-    tmp_cmf_80_low: r.tmp_cmf_80_low,
-    tmp_cmf_80_up: r.tmp_cmf_80_up,
-    tmp_cmf_90_low: r.tmp_cmf_90_low,
-    tmp_cmf_90_up: r.tmp_cmf_90_up,
-    acceptability_80: r.acceptability_80,
-    acceptability_90: r.acceptability_90,
-  };
+  return result;
 }
 
 /**

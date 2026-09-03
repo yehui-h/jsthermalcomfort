@@ -11,7 +11,7 @@ export type { AdaptiveAshraeResult } from "./adaptive_ashrae.js";
 export type { AdaptiveEnResult } from "./adaptive_en.js";
 export type { CoolingEffectResult } from "./cooling_effect.js";
 export type { PmvPpdKwargs, PmvPpdResult, PmvPpdStandard } from "./pmv_ppd.js";
-export type { PmvPpdIso, PmvPpdIsoKwargs } from "./pmv_ppd_iso.js";
+export type { PmvPpdIsoKwargs } from "./pmv_ppd_iso.js";
 export type { BodyPosition, SetTmpKwargs, SetTmpResult } from "./set_tmp.js";
 export type { TwoNodesKwargs, TwoNodesResult } from "./two_nodes.js";
 

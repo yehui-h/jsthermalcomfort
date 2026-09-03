@@ -69,8 +69,11 @@ describe("thermal sensation scale", () => {
     const ashrae = ashraeThermalSensation.intervals.find(
       (i) => i.label === "Slightly Cool",
     )!;
-    expect(iso.notation).toBe("[-1.5, -0.5)");
-    expect(ashrae.notation).toBe("(-1.5, -0.5]");
+    expect([iso.lower.inclusive, iso.upper.inclusive]).toEqual([true, false]);
+    expect([ashrae.lower.inclusive, ashrae.upper.inclusive]).toEqual([
+      false,
+      true,
+    ]);
   });
 
   it("leaves NaN and values past the top edge unclassified", () => {
@@ -122,9 +125,6 @@ describe("LabeledInterval", () => {
       { value: 1, inclusive: true },
     );
 
-    expect(
-      [closed, open, leftClosed, rightClosed].map((i) => i.notation),
-    ).toEqual(["[0, 1]", "(0, 1)", "[0, 1)", "(0, 1]"]);
     expect(
       [closed, open, leftClosed, rightClosed].map((i) => i.contains(0)),
     ).toEqual([true, false, true, false]);
@@ -257,7 +257,14 @@ describe("metadata attached to the model functions", () => {
     // pythermalcomfort computes it as (pmv > -0.5) & (pmv < 0.5), so exactly
     // ±0.5 is *not* compliant. A closed interval would silently widen it.
     expect(pmv_ppd_ashrae.COMPLIANCE_LIMIT).toBe(0.5);
-    expect(pmv_ppd_ashrae.compliance.notation).toBe("(-0.5, 0.5)");
+    expect(pmv_ppd_ashrae.compliance.lower).toEqual({
+      value: -0.5,
+      inclusive: false,
+    });
+    expect(pmv_ppd_ashrae.compliance.upper).toEqual({
+      value: 0.5,
+      inclusive: false,
+    });
     expect(pmv_ppd_ashrae.compliance.contains(0.5)).toBe(false);
     expect(pmv_ppd_ashrae.compliance.contains(-0.5)).toBe(false);
     expect(pmv_ppd_ashrae.compliance.contains(0.49)).toBe(true);

@@ -51,13 +51,6 @@ export class LabeledInterval {
       ? value <= this.upper.value
       : value < this.upper.value;
   }
-
-  /** Mathematical notation, e.g. `"[-1.5, -0.5)"`. Handy in docs and snapshots. */
-  get notation(): string {
-    const open = this.lower.inclusive ? "[" : "(";
-    const close = this.upper.inclusive ? "]" : ")";
-    return `${open}${this.lower.value}, ${this.upper.value}${close}`;
-  }
 }
 
 /**

@@ -3,31 +3,15 @@ import { ashrae55PmvLimits } from "../reference/limits.js";
 import { standards } from "../reference/standards.js";
 import { LabeledInterval } from "../reference/interval.js";
 import { pmv_ppd } from "./pmv_ppd.js";
-import { UNIT_SYSTEMS, validateInputs } from "../utilities/utilities.js";
-import type { ValidationSchema } from "../utilities/utilities.js";
 import type { PmvPpdKwargs, PmvPpdResult } from "./pmv_ppd.js";
-
-const PMV_PPD_ASHRAE_SCHEMA = {
-  tdb: { type: "number" },
-  tr: { type: "number" },
-  vr: { type: "number" },
-  rh: { type: "number" },
-  met: { type: "number" },
-  clo: { type: "number" },
-  wme: { type: "number" },
-  units: { enum: UNIT_SYSTEMS, required: false },
-  limit_inputs: { type: "boolean", required: false },
-  airspeed_control: { type: "boolean", required: false },
-  round_output: { type: "boolean", required: false },
-} satisfies ValidationSchema;
 
 /**
  * Calculate PMV and PPD in accordance with ASHRAE 55.
  *
- * Delegates to {@link pmv_ppd} with the standard fixed to `'ASHRAE'`.
- * The ASHRAE equation applies a cooling effect (via SET) before computing
- * PMV — this lowers the result compared to the raw ISO equation when
- * elevated air speed is present.
+ * Delegates to {@link pmv_ppd} with the standard fixed to `'ASHRAE'`, which
+ * also validates every argument. The ASHRAE equation applies a cooling effect
+ * (via SET) before computing PMV — this lowers the result compared to the raw
+ * ISO equation when elevated air speed is present.
  *
  * Valid ASHRAE 55 input ranges (when `limit_inputs` is true):
  * - 10 < tdb [°C] < 40
@@ -64,22 +48,6 @@ export function pmv_ppd_ashrae(
   wme = 0,
   kwargs: PmvPpdKwargs = {},
 ): PmvPpdResult {
-  validateInputs(
-    {
-      tdb,
-      tr,
-      vr,
-      rh,
-      met,
-      clo,
-      wme,
-      units: kwargs.units?.toUpperCase(),
-      limit_inputs: kwargs.limit_inputs,
-      airspeed_control: kwargs.airspeed_control,
-      round_output: kwargs.round_output,
-    },
-    PMV_PPD_ASHRAE_SCHEMA,
-  );
   return pmv_ppd(tdb, tr, vr, rh, met, clo, wme, "ASHRAE", kwargs);
 }
 

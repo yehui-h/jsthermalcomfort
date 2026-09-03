@@ -13,53 +13,6 @@ import type { QuantityKind } from "../io/quantity.js";
 export { round };
 
 /**
- * Converts degrees to radians
- *
- * @param degrees
- *
- * @returns radians
- */
-function degrees_to_radians(degrees: number): number {
-  return degrees * (Math.PI / 180);
-}
-
-/**
- * Converts radians to degree unit
- *
- * @param radians
- *
- * @returns degrees
- */
-function radians_to_degrees(radians: number): number {
-  return radians * (180 / Math.PI);
-}
-
-/**
- * Converts sharp and altittude from radians to degree unit
- * @param sharp
- * @param altitude
- * @returns
- */
-export function transpose_sharp_altitude(
-  sharp: number,
-  altitude: number,
-): [number, number] {
-  const altitude_new = radians_to_degrees(
-    Math.asin(
-      Math.sin(degrees_to_radians(Math.abs(sharp - 90))) *
-        Math.cos(degrees_to_radians(altitude)),
-    ),
-  );
-  sharp = radians_to_degrees(
-    Math.atan(
-      Math.sin(degrees_to_radians(sharp)) *
-        Math.tan(degrees_to_radians(90 - altitude)),
-    ),
-  );
-  return [round(sharp, 3), round(altitude_new, 3)];
-}
-
-/**
  * Inputs accepted by {@link check_standard_compliance}. Every field is optional:
  * each standard inspects only the ones it constrains.
  */
@@ -71,9 +24,6 @@ export interface ComplianceKwargs {
   v?: number;
   vr?: number;
   v_limited?: number;
-  rh?: number;
-  /** partial water-vapour pressure, [kPa] — read by the ISO 7933 branches */
-  p_a?: number;
   airspeed_control?: boolean;
 }
 
@@ -81,12 +31,8 @@ export interface ComplianceKwargs {
  * Standard names accepted by {@link check_standard_compliance}.
  */
 export const Standard = Object.freeze({
-  ANKLE_DRAFT: "ANKLE_DRAFT",
   ASHRAE: "ASHRAE",
-  FAN_HEATWAVES: "FAN_HEATWAVES",
   ISO: "ISO",
-  ISO_7933_2004: "7933-2004",
-  ISO_7933_2023: "7933-2023",
 } as const);
 
 /** One of the standard identifiers listed in {@link Standard}. */
@@ -105,40 +51,13 @@ export function check_standard_compliance(
   kwargs: ComplianceKwargs,
 ): string[] {
   switch (standard) {
-    case Standard.ANKLE_DRAFT:
-      return _ankle_draft_compliance(kwargs);
     case Standard.ASHRAE:
       return _ashrae_compliance(kwargs);
-    case Standard.FAN_HEATWAVES:
-      return _fan_heatwaves_compliance(kwargs);
     case Standard.ISO:
       return _iso_compliance(kwargs);
-    case Standard.ISO_7933_2004:
-      return _iso7933_2004_compliance(kwargs);
-    case Standard.ISO_7933_2023:
-      return _iso7933_2023_compliance(kwargs);
     default:
       throw new Error("Unknown standard");
   }
-}
-
-/**
- * @param {ComplianceKwargs} kwargs
- *
- * @returns {string[]} strings with warnings emitted
- */
-function _ankle_draft_compliance(kwargs: ComplianceKwargs): string[] {
-  const warnings: string[] = [];
-  for (const [key, value] of Object.entries(kwargs)) {
-    // Only numeric fields are range-checked here; `airspeed_control` is a
-    // boolean and is handled by the cross-field checks below.
-    if (typeof value !== "number") continue;
-    if (key === "met" && value > 1.3)
-      warnings.push("The ankle draft model is only valid for met <= 1.3");
-    if (key === "clo" && value > 0.7)
-      warnings.push("The ankle draft model is only valid for clo <= 0.7");
-  }
-  return warnings;
 }
 
 /**
@@ -212,56 +131,6 @@ function _ashrae_compliance(kwargs: ComplianceKwargs): string[] {
 }
 
 /**
- * @param {ComplianceKwargs} kwargs
- *
- * @returns {string[]} strings with warnings emitted
- */
-function _fan_heatwaves_compliance(kwargs: ComplianceKwargs): string[] {
-  const warnings: string[] = [];
-  for (const [key, value] of Object.entries(kwargs)) {
-    // Only numeric fields are range-checked here; `airspeed_control` is a
-    // boolean and is handled by the cross-field checks below.
-    if (typeof value !== "number") continue;
-    switch (key) {
-      case "tdb":
-      case "tr": {
-        const parameter = key === "tdb" ? "dry-bulb" : "mean radiant";
-        if (value > 50 || value < 20)
-          warnings.push(
-            `Fan use during heatwaves ${parameter} temperature applicability limits between 20 and 50 ºC`,
-          );
-        break;
-      }
-      case "v":
-        if (value > 4.5 || value < 0.1)
-          warnings.push(
-            "Fan use during heatwaves air speed applicability limits between 0.1 and 4.5 m/s",
-          );
-        break;
-      case "rh":
-        if (value > 100 || value < 0)
-          warnings.push(
-            "Fan use during heatwaves rh applicability limits between 0 and 100 %",
-          );
-        break;
-      case "met":
-        if (value > 2 || value < 0.7)
-          warnings.push(
-            "Fan use during heatwaves met applicability limits between 0.7 and 2 met",
-          );
-        break;
-      case "clo":
-        if (value > 1 || value < 0)
-          warnings.push(
-            "Fan use during heatwaves clo applicability limits between 0 and 1 clo",
-          );
-        break;
-    }
-  }
-  return warnings;
-}
-
-/**
  * @param kwargs
  *
  * @returns strings with warnings emitted
@@ -271,95 +140,6 @@ function _iso_compliance(kwargs: ComplianceKwargs): string[] {
   // met row whose lower bound is 0 while its message says 0.8 — that
   // discrepancy is documented there.
   return _range_warnings(kwargs, iso7730PmvLimits);
-}
-
-/**
- * @param {ComplianceKwargs} kwargs
- *
- * @returns {string[]} strings with warnings emitted
- */
-function _iso7933_2004_compliance(kwargs: ComplianceKwargs): string[] {
-  // based on ISO 7933:2004 Annex A
-  if (
-    kwargs.tdb === undefined ||
-    kwargs.p_a === undefined ||
-    kwargs.tr === undefined ||
-    kwargs.v === undefined ||
-    kwargs.met === undefined ||
-    kwargs.clo === undefined
-  ) {
-    throw new Error(
-      `Missing arguments for ISO 7933:2004 compliance check, got: ${kwargs} and requires tdb, p_a, tr, v, met and clo`,
-    );
-  }
-  /** @type {string[]} */
-  const warnings = [];
-
-  if (kwargs.tdb > 50 || kwargs.tdb < 15)
-    warnings.push(
-      "ISO 7933:2004 air temperature applicability limits between 15 and 50 ºC",
-    );
-  if (kwargs.p_a > 4.5 || kwargs.p_a < 0)
-    warnings.push(
-      "ISO 7933:2004 p_a applicability limits between 0 and 4.5 kPa",
-    );
-  if (kwargs.tr > 60 || kwargs.tr < 0)
-    warnings.push("ISO 7933:2004 tr applicability limits between 0 and 60 ºC");
-  if (kwargs.v > 3 || kwargs.v < 0)
-    warnings.push(
-      "ISO 7933:2004 air speed applicability limits between 0 and 3 m/s",
-    );
-  if (kwargs.met > 450 || kwargs.met < 100)
-    warnings.push(
-      "ISO 7933:2004 met applicability limits between 100 and 450 met",
-    );
-  if (kwargs.clo > 1 || kwargs.clo < 0.1)
-    warnings.push(
-      "ISO 7933:2004 clo applicability limits between 0.1 and 1 clo",
-    );
-  return warnings;
-}
-
-function _iso7933_2023_compliance(kwargs: ComplianceKwargs): string[] {
-  // based on ISO 7933:2023 Annex A
-  if (
-    kwargs.tdb === undefined ||
-    kwargs.p_a === undefined ||
-    kwargs.tr === undefined ||
-    kwargs.v === undefined ||
-    kwargs.met === undefined ||
-    kwargs.clo === undefined
-  ) {
-    throw new Error(
-      `Missing arguments for ISO 7933:2023 compliance check, got: ${kwargs} and requires tdb, p_a, tr, v, met and clo`,
-    );
-  }
-  /** @type {string[]} */
-  const warnings = [];
-
-  if (kwargs.tdb > 50 || kwargs.tdb < 15)
-    warnings.push(
-      "ISO 7933:2023 air temperature applicability limits between 15 and 50 ºC",
-    );
-  if (kwargs.p_a > 4.5 || kwargs.p_a < 0.5)
-    warnings.push(
-      "ISO 7933:2023 p_a applicability limits between 0.5 and 4.5 kPa",
-    );
-  if (kwargs.tr > 60 || kwargs.tr < 0)
-    warnings.push("ISO 7933:2023 tr applicability limits between 0 and 60 ºC");
-  if (kwargs.v > 3 || kwargs.v < 0)
-    warnings.push(
-      "ISO 7933:2023 air speed applicability limits between 0 and 3 m/s",
-    );
-  if (kwargs.met > 450 || kwargs.met < 100)
-    warnings.push(
-      "ISO 7933:2023 met applicability limits between 100 and 450 met",
-    );
-  if (kwargs.clo > 1 || kwargs.clo < 0.1)
-    warnings.push(
-      "ISO 7933:2023 clo applicability limits between 0.1 and 1 clo",
-    );
-  return warnings;
 }
 
 /** Formulae available to {@link body_surface_area}. */

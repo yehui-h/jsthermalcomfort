@@ -1,5 +1,4 @@
-import { describe, it } from "vitest";
-import { deep_close_to_obj } from "../test_utilities";
+import { describe, expect, it } from "vitest";
 import { psy_ta_rh } from "../../src/psychrometrics/psy_ta_rh";
 
 describe("psy_ta_rh", () => {
@@ -72,8 +71,14 @@ describe("psy_ta_rh", () => {
   ])(
     "returns $expected when tdb is $tdb, rh is $rh, p_atm is $p_atm",
     ({ tdb, rh, p_atm, expected }) => {
-      const result = psy_ta_rh(tdb, rh, p_atm);
-      deep_close_to_obj(result, expected, 1);
+      expect(psy_ta_rh(tdb, rh, p_atm)).toEqual(
+        Object.fromEntries(
+          Object.entries(expected).map(([key, value]) => [
+            key,
+            expect.closeTo(value, 0),
+          ]),
+        ),
+      );
     },
   );
 });

@@ -40,6 +40,12 @@ export default tseslint.config(
         },
       ],
       "@typescript-eslint/consistent-type-imports": "error",
+      // `const { warnings, ...result } = …` is how a field is dropped from a
+      // return value; the named sibling is the point, not an unused variable.
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { ignoreRestSiblings: true },
+      ],
     },
   },
   {
