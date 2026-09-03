@@ -1,6 +1,6 @@
 // Validation data loaded from the shared validation-data-comfort-models
 // repository via the same URL-based mechanism as the original pmv_ppd.test.js.
-import { describe, expect, test } from "@jest/globals";
+import { describe, expect, test } from "vitest";
 import { pmv_ppd_iso } from "../../src/models/pmv_ppd_iso.js";
 import { testDataUrls } from "./comftest";
 import {

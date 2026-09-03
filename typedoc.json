@@ -1,0 +1,37 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/index.ts",
+    "src/models/index.ts",
+    "src/psychrometrics/index.ts",
+    "src/utilities/index.ts",
+    "src/reference/index.ts",
+    "src/io/index.ts",
+    "src/charts/index.ts"
+  ],
+  "entryPointStrategy": "expand",
+  "tsconfig": "configs/tsconfig.check.json",
+  "out": "docs",
+  "name": "jsthermalcomfort",
+  "readme": "docs-src/overview.md",
+  "projectDocuments": [
+    "docs-src/installation.md",
+    "docs-src/examples.md",
+    "docs-src/references.md",
+    "docs-src/surveys.md",
+    "docs-src/contributing.md",
+    "docs-src/authors.md",
+    "docs-src/changelog.md"
+  ],
+  "categorizeByGroup": true,
+  "navigationLinks": {
+    "GitHub": "https://github.com/FedericoTartarini/jsthermalcomfort"
+  },
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": false
+  }
+}

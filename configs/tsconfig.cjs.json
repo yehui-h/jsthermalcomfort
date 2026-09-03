@@ -1,11 +1,17 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES6", "DOM"],
-    "target": "ES6",
+    // verbatimModuleSyntax is DELIBERATELY off here, and only here.
+    // Verified with tsc 6.0.3: it is mutually exclusive with CommonJS emit
+    // (TS1287 "A top-level 'export' modifier cannot be used on value
+    // declarations in a CommonJS module", TS1295). tsconfig.check.json is the
+    // authoritative pass and keeps it on, so nothing is actually relaxed.
     "module": "CommonJS",
-    "moduleResolution": "Node",
+    "moduleResolution": "node10",
+    "ignoreDeprecations": "6.0",
+    "rootDir": "../src",
     "outDir": "../lib/cjs",
     "declarationDir": "../lib/cjs/types"
-  }
+  },
+  "include": ["../src/**/*"]
 }

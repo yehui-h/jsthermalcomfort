@@ -1,4 +1,4 @@
-import fetch from "node-fetch"; // Import node-fetch to support data fetching
+// Uses the global fetch built into Node 20+; node-fetch was a mis-scoped runtime dependency.
 
 /**
  * Drop rows whose `inputs` contain any array-valued field. Pure helper so it

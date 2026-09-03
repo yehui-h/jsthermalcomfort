@@ -1,4 +1,4 @@
-import { describe, expect, test } from "@jest/globals";
+import { describe, expect, test } from "vitest";
 import { adaptive_ashrae } from "../../src/models/adaptive_ashrae";
 import { testDataUrls } from "./comftest";
 import { loadTestData, validateResult } from "./testUtils";

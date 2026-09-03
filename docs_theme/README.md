@@ -10,6 +10,6 @@ This is bundled by default in documentation: it is the default theme.
 
 The contents are the following:
 
-* `index._`, the main template that defines the document structure
-* `section._`, a partial used to render each chunk of documentation
-* `assets/*`, any assets, including CSS & JS
+- `index._`, the main template that defines the document structure
+- `section._`, a partial used to render each chunk of documentation
+- `assets/*`, any assets, including CSS & JS

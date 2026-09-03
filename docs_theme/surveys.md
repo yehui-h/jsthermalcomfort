@@ -25,56 +25,63 @@ Web-based and mobile applications designed for building operations may help addr
 For instance, you can use [Cozie](https://cozie-apple.app/) - An iOS application for watch surveys and physiological data collection.
 
 ### Thermal sensation
+
 How do you feel right now?
 
-| Scale | Description |
-| :--- | :--- |
-| -3 | Cold |
-| -2 | Cool |
-| -1 | Slightly cool |
-| 0 | Neutral |
-| +1 | Slightly warm |
-| +2 | Warm |
-| +3 | Hot |
+| Scale | Description   |
+| :---- | :------------ |
+| -3    | Cold          |
+| -2    | Cool          |
+| -1    | Slightly cool |
+| 0     | Neutral       |
+| +1    | Slightly warm |
+| +2    | Warm          |
+| +3    | Hot           |
 
 ### Thermal satisfaction
+
 How satisfied are you with the thermal environment right now?
 
-| Scale | Description |
-| :--- | :--- |
-| -3 | Very dissatisfied |
-| -2 | Dissatisfied |
-| -1 | Slightly dissatisfied |
-| 0 | Neutral |
-| +1 | Slightly satisfied |
-| +2 | Satisfied |
-| +3 | Very satisfied |
+| Scale | Description           |
+| :---- | :-------------------- |
+| -3    | Very dissatisfied     |
+| -2    | Dissatisfied          |
+| -1    | Slightly dissatisfied |
+| 0     | Neutral               |
+| +1    | Slightly satisfied    |
+| +2    | Satisfied             |
+| +3    | Very satisfied        |
 
 ### Thermal preference
+
 Right now, would you prefer to be … ?
 
 | Scale | Description |
-| :--- | :--- |
-| -1 | Cooler |
-| 0 | No change |
-| +1 | Warmer |
+| :---- | :---------- |
+| -1    | Cooler      |
+| 0     | No change   |
+| +1    | Warmer      |
 
 ### Air movement preference
+
 Right now, would you prefer … ?
 
-| Scale | Description |
-| :--- | :--- |
-| -1 | Less air movement |
-| 0 | No change |
-| +1 | More air movement |
+| Scale | Description       |
+| :---- | :---------------- |
+| -1    | Less air movement |
+| 0     | No change         |
+| +1    | More air movement |
 
 ### Clothing and activity
+
 Clothing and activity level can be assessed using the following questions:
 
 ![Clothing and activity reference image](../assets/images/clothing_and_activity.png)
 
 ### Thermal Disposition
+
 Thinking about your daily life and compared to people around you (for example, colleagues at work, friends, family members), you consider yourself to be:
+
 - **More sensitive to heat than most people** (for example, I normally complain about feeling warm while others around me are not feeling warm)
 - **More sensitive to cold than most people** (for example, I normally complain about feeling cold while others around me are not feeling cold)
 - **Sensitive to both heat and cold** (for example, I normally complain about feeling either warm or cold while others around me are not feeling warm or cold)

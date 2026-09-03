@@ -59,29 +59,77 @@ You can also import it in the website directly, and caution that you need to mar
 </script>
 ```
 
-# Examples and Tutorials
+# Four layers
 
-We developed a few [examples](https://github.com/FedericoTartarini/jsthermalcomfort/tree/main/docs/examples) files on how to use some of the functions.
+The **models** take and return plain numbers, exactly as they always have:
 
-Here is a list of examples running in the browser:
+```js
+import { pmv_ppd_iso, adaptive_ashrae } from "jsthermalcomfort";
 
-- [PHS](/docs/examples/phs.html)
+pmv_ppd_iso(25, 25, 0.1, 50, 1.2, 0.5); // { pmv: 0.08, ppd: 5.1 }
+adaptive_ashrae(25, 25, 20, 0.1); // { tmp_cmf: 24, ... }
+```
+
+**`jsthermalcomfort/reference`** holds the thresholds as data — the thermal
+sensation scales, the adaptive acceptability offsets, the EN category limits —
+so a consuming tool reads one definition instead of transcribing numbers into
+its own source. The same tables hang off the model functions:
+
+```js
+import { pmv_ppd_iso } from "jsthermalcomfort";
+
+pmv_ppd_iso.tsv.labelFor(-0.8); // "Slightly Cool"
+pmv_ppd_iso.tsv.classify(-0.8).notation; // "[-1.5, -0.5)"
+```
+
+**`jsthermalcomfort/io`** gives every model one input shape and one output
+shape, without changing what the models themselves return:
+
+```js
+import { io } from "jsthermalcomfort";
+
+const result = io.adaptiveEn({ tdb: 25, tr: 25, t_running_mean: 20, v: 0.1 });
+result.toMeasures(); // [{ quantity, value, unit, category, intervals }]
+result.warnings; // why a NaN is a NaN
+```
+
+**`jsthermalcomfort/charts`** computes the comfort zones a tool draws — the
+psychrometric zone by root finding, the adaptive bands in closed form —
+reproducing the geometry of the CBE Thermal Comfort Tool:
+
+```js
+import { charts } from "jsthermalcomfort";
+
+charts.psychrometricZone({ tr: 25, vr: 0.13, met: 1.1, clo: 0.5 }).polygon;
+charts.adaptiveAshraeZone()[0].upper; // the 80% band, from trm 10 to trm 36
+```
+
+Every layer calls the same functions with the same defaults, so the numbers
+agree; tests enforce that. See
+[Examples](https://federicotartarini.github.io/jsthermalcomfort/documents/Examples.html).
+
+Subpath entry points: `jsthermalcomfort/models`, `/psychrometrics`,
+`/utilities`, `/reference`, `/io`, `/charts`. The package ships ESM, CommonJS
+and type declarations, and resolves under node10, node16 and bundler resolution
+alike.
 
 # Contributing
 
 Contributions are welcome.
 
-- Contributor guide: [`docs_theme/contributing.md`](docs_theme/contributing.md)
-- Online docs version: [Contributing](https://federicotartarini.github.io/jsthermalcomfort/contributing.html)
+- Contributor guide: [`docs-src/contributing.md`](docs-src/contributing.md)
 - Bug reports and feature requests: [GitHub Issues](https://github.com/FedericoTartarini/jsthermalcomfort/issues)
 
 ## Local development (quick start)
 
 ```bash
 npm ci
+npm run typecheck
+npm run lint
 npm test
-npm run check:format
 npm run build
+npm run check:exports   # verifies the ESM/CJS/types wiring still resolves
+npm run docs
 ```
 
 Validation datasets for model tests are fetched from

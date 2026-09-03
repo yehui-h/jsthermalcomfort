@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, typescript]
   pull_request:
-    branches: [main]
+    branches: [main, typescript]
 
 permissions:
   contents: read
@@ -36,4 +36,10 @@ jobs:
           node-version: 24.x
       - run: npm ci
       - run: npm run check:format
+      - run: npm run typecheck
+      - run: npm run lint
       - run: npm run build
+      # Proves the ESM/CJS/types wiring still resolves for every consumer
+      # shape (node10, node16 CJS, node16 ESM, bundler). This is the guard
+      # against silently re-breaking `require("jsthermalcomfort")`.
+      - run: npm run check:exports
