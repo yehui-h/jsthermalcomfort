@@ -1,7 +1,6 @@
-import { pmv_ppd } from "../models/pmv_ppd.js";
 import { psy_ta_rh } from "../psychrometrics/psy_ta_rh.js";
 import { NO_ROOT_FOUND, bisect, secant } from "../utilities/root_finding.js";
-import type { PmvPpdStandard } from "../models/pmv_ppd.js";
+import type { PmvPpdModel } from "../models/pmv_ppd.js";
 
 /** A point on a psychrometric chart, in SI units. */
 export interface PsychrometricPoint {
@@ -30,7 +29,8 @@ export interface UnsolvedRow {
 export interface PsychrometricZone {
   /** The |PMV| the edges were solved at. */
   readonly pmvLimit: number;
-  readonly standard: PmvPpdStandard;
+  /** The PMV model the edges were solved with, echoed back. */
+  readonly model: PmvPpdModel;
   /** The `PMV = -pmvLimit` edge, in ascending relative humidity. */
   readonly coolEdge: readonly PsychrometricPoint[];
   /** The saturation line between the two edges, in ascending temperature. */
@@ -75,18 +75,27 @@ export interface PsychrometricZoneOptions {
   readonly vr: number;
   /** Metabolic rate, [met]. */
   readonly met: number;
-  /** Dynamic clothing insulation, [clo] — `clo_dynamic` already applied. */
+  /** Dynamic clothing insulation, [clo] — `clo_dynamic_ashrae` / `clo_dynamic_iso` already applied. */
   readonly clo: number;
   /** External work, [met]. Default `0`. */
   readonly wme?: number;
   /** The |PMV| to trace. Default `0.5`. */
   readonly pmvLimit?: number;
   /**
-   * `'ASHRAE'` applies the elevated-air-speed cooling effect, `'ISO'` uses
-   * Fanger's equation unmodified. Default `'ASHRAE'`, matching the tool's main
-   * psychrometric chart; its EN chart is the `'ISO'` case.
+   * The PMV model to trace: `pmv_ppd_ashrae` (applies the elevated-air-speed
+   * cooling effect, the tool's main psychrometric chart) or `pmv_ppd_iso`
+   * (Fanger's equation unmodified, the tool's EN chart).
+   *
+   * Required, and the function itself rather than a string naming it. A model
+   * function already carries the standard it applies, so the zone's geometry
+   * cannot disagree with the model whose comfort region it claims to draw —
+   * which a defaulted `standard: 'ASHRAE'` string made easy to get wrong.
+   *
+   * The zone controls `limit_inputs: false` and `round_output: false`
+   * internally: the boundary is a root of the raw PMV, and a rounded or
+   * NaN-clamped model cannot be root-found.
    */
-  readonly standard?: PmvPpdStandard;
+  readonly model: PmvPpdModel;
   /** Relative humidity step between rows, [%]. Default `10`. */
   readonly rhStep?: number;
   /** Temperature step along the saturation line, [°C]. Default `0.5`. */
@@ -148,13 +157,19 @@ export interface PsychrometricZoneOptions {
  * @public
  *
  * @example
- * import { charts, clo_dynamic, v_relative } from "jsthermalcomfort";
+ * import {
+ *   charts,
+ *   clo_dynamic_ashrae,
+ *   pmv_ppd_ashrae,
+ *   v_relative,
+ * } from "jsthermalcomfort";
  *
  * const zone = charts.psychrometricZone({
+ *   model: pmv_ppd_ashrae,
  *   tr: 25,
  *   vr: v_relative(0.1, 1.1),
  *   met: 1.1,
- *   clo: clo_dynamic(0.5, 1.1),
+ *   clo: clo_dynamic_ashrae(0.5, 1.1),
  * });
  * zone.polygon.map((p) => [p.db, p.hr]);
  */
@@ -181,7 +196,7 @@ function trace(options: PsychrometricZoneOptions): PsychrometricZone {
     clo,
     wme = 0,
     pmvLimit = 0.5,
-    standard = "ASHRAE",
+    model,
     rhStep = 10,
     saturationStep = 0.5,
     epsilon = 0.001,
@@ -207,7 +222,7 @@ function trace(options: PsychrometricZoneOptions): PsychrometricZone {
       // unreachable target would surface as an exception instead of a report.
       if (!Number.isFinite(db)) return NaN;
       return (
-        pmv_ppd(db, trFollowsDb ? db : tr, vr, rh, met, clo, wme, standard, {
+        model(db, trFollowsDb ? db : tr, vr, rh, met, clo, wme, {
           limit_inputs: false,
           round_output: false,
         }).pmv - target
@@ -244,7 +259,7 @@ function trace(options: PsychrometricZoneOptions): PsychrometricZone {
 
   return {
     pmvLimit,
-    standard,
+    model,
     coolEdge,
     saturationEdge,
     warmEdge,

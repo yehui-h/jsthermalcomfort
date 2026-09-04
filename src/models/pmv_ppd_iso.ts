@@ -5,15 +5,48 @@ import { pmv_ppd } from "./pmv_ppd.js";
 import type { PmvPpdKwargs, PmvPpdResult } from "./pmv_ppd.js";
 
 /**
- * Optional overrides accepted by {@link pmv_ppd_iso}: everything
- * {@link pmv_ppd} takes except the ASHRAE-only `airspeed_control`.
+ * The ISO 7730 editions {@link pmv_ppd_iso} implements, newest last.
+ *
+ * Published as data so a consumer offering an edition picker reads the list
+ * rather than transcribing it.
+ *
+ * @public
  */
-export type PmvPpdIsoKwargs = Omit<PmvPpdKwargs, "airspeed_control">;
+export const PMV_PPD_ISO_EDITIONS = ["7730-2005", "7730-2025"] as const;
+
+/**
+ * An ISO 7730 edition.
+ *
+ * **Naming deviation from upstream**, deliberate: pythermalcomfort spells this
+ * parameter `model` (`pythermalcomfort/models/pmv_ppd_iso.py`). In this
+ * package and in its consumers `model` already means "a model function", so
+ * `model: "7730-2005"` reads as a category error.
+ *
+ * @public
+ */
+export type PmvPpdIsoEdition = (typeof PMV_PPD_ISO_EDITIONS)[number];
+
+/**
+ * Optional overrides accepted by {@link pmv_ppd_iso}: everything
+ * `pmv_ppd` takes except the ASHRAE-only `airspeed_control`, plus the
+ * edition of the standard being applied.
+ */
+export type PmvPpdIsoKwargs = Omit<PmvPpdKwargs, "airspeed_control"> & {
+  /**
+   * ISO 7730 edition. Default `"7730-2025"`, as upstream.
+   *
+   * The two editions currently run the same kernel over the same limits, so
+   * this changes no numbers — it exists so a result can say which edition it
+   * was computed under.
+   */
+  edition?: PmvPpdIsoEdition;
+};
 
 /**
  * Calculate PMV and PPD in accordance with ISO 7730.
  *
- * Delegates to {@link pmv_ppd} with the standard fixed to `'ISO'`, which also
+ * Delegates to the shared `pmv_ppd` kernel with the standard fixed to
+ * `'ISO'`, which also
  * validates every argument. The ISO equation uses Fanger's original PMV
  * formulation without the ASHRAE cooling-effect adjustment.
  *
@@ -25,7 +58,10 @@ export type PmvPpdIsoKwargs = Omit<PmvPpdKwargs, "airspeed_control">;
  * -  0 < vr  [m/s] < 1
  * - 0.8 < met [met] < 4
  * -  0 < clo [clo] < 2
+ * -  0 < pa  [Pa] < 2700 (the vapour pressure derived from tdb and rh)
  * - -2 < PMV < 2 (result is clamped to NaN outside this range)
+ *
+ * All seven are published as data in `reference.iso7730PmvLimits`.
  *
  * @param tdb - Dry-bulb air temperature [°C] (or [°F] if units = 'IP')
  * @param tr - Mean radiant temperature [°C] (or [°F] if units = 'IP')
@@ -55,7 +91,15 @@ export function pmv_ppd_iso(
   wme = 0,
   kwargs: PmvPpdIsoKwargs = {},
 ): PmvPpdResult {
-  return pmv_ppd(tdb, tr, vr, rh, met, clo, wme, "ISO", kwargs);
+  // `edition` is checked here and not forwarded: it selects which edition the
+  // result is reported under, and both run the same kernel over the same
+  // limits, so nothing downstream needs to see it.
+  const { edition = "7730-2025", ...rest } = kwargs;
+  if (!PMV_PPD_ISO_EDITIONS.includes(edition))
+    throw new Error(
+      `Edition '${edition}' is not supported. Supported editions are: ${PMV_PPD_ISO_EDITIONS.join(", ")}.`,
+    );
+  return pmv_ppd(tdb, tr, vr, rh, met, clo, wme, "ISO", rest);
 }
 
 // Metadata, not behaviour: attaching these leaves the function's arguments and
@@ -69,3 +113,5 @@ pmv_ppd_iso.tsv = isoThermalSensation;
 pmv_ppd_iso.standard = standards.iso7730;
 /** The ranges outside which this model warns and, by default, returns NaN. */
 pmv_ppd_iso.limits = iso7730PmvLimits;
+/** The editions `kwargs.edition` accepts; the last is the default. */
+pmv_ppd_iso.editions = PMV_PPD_ISO_EDITIONS;

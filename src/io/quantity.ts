@@ -79,8 +79,8 @@ export const quantities = table({
     siUnit: "°C",
     ipUnit: "°F",
   },
-  t_o: {
-    key: "t_o",
+  operative_tmp: {
+    key: "operative_tmp",
     kind: "temperature",
     label: "Operative temperature",
     siUnit: "°C",
@@ -114,15 +114,15 @@ export const quantities = table({
     siUnit: "kg/kg",
     ipUnit: "kg/kg",
   },
-  t_dp: {
-    key: "t_dp",
+  dew_point_tmp: {
+    key: "dew_point_tmp",
     kind: "temperature",
     label: "Dew-point temperature",
     siUnit: "°C",
     ipUnit: "°F",
   },
-  t_wb: {
-    key: "t_wb",
+  wet_bulb_tmp: {
+    key: "wet_bulb_tmp",
     kind: "temperature",
     label: "Wet-bulb temperature",
     siUnit: "°C",

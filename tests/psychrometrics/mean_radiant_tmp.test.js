@@ -1,7 +1,7 @@
 import { expect, describe, it } from "vitest";
-import { t_mrt } from "../../src/psychrometrics/t_mrt";
+import { mean_radiant_tmp } from "../../src/psychrometrics/mean_radiant_tmp";
 
-describe("t_mrt", () => {
+describe("mean_radiant_tmp", () => {
   it.each([
     {
       tg: 53.2,
@@ -33,8 +33,11 @@ describe("t_mrt", () => {
       standard: "Mixed Convection",
       expected: 24.2,
     },
-  ])("test t_mrt", ({ tg, tdb, v, d, emissivity, standard, expected }) => {
-    const result = t_mrt(tg, tdb, v, d, emissivity, standard);
-    expect(result).toBe(expected);
-  });
+  ])(
+    "test mean_radiant_tmp",
+    ({ tg, tdb, v, d, emissivity, standard, expected }) => {
+      const result = mean_radiant_tmp(tg, tdb, v, d, emissivity, standard);
+      expect(result).toBe(expected);
+    },
+  );
 });

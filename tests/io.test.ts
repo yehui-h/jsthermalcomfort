@@ -255,9 +255,11 @@ describe("classification", () => {
     expect(neutral.tsv).toBe("Neutral");
   });
 
-  it("keeps the two standards' opposite closures visible", () => {
-    // At tdb = tr = 23.029 the PMV rounds to exactly -0.5, the cut point the
-    // two standards close from opposite sides.
+  it("labels a shared cut point the same way under both standards", () => {
+    // At tdb = tr = 23.029 the PMV rounds to exactly -0.5, a band edge. Both
+    // scales are left-closed, so the edge belongs to the band above it and the
+    // two standards' pages agree. See the provenance note on
+    // `ashraeThermalSensation` for why upstream's ASHRAE scale does not.
     const shared = {
       tdb: 23.029,
       tr: 23.029,
@@ -269,7 +271,7 @@ describe("classification", () => {
     expect(pmvPpdIso(shared).pmv).toBe(-0.5);
     expect(pmvPpdAshrae(shared).pmv).toBe(-0.5);
     expect(pmvPpdIso(shared).tsv).toBe("Neutral");
-    expect(pmvPpdAshrae(shared).tsv).toBe("Slightly Cool");
+    expect(pmvPpdAshrae(shared).tsv).toBe("Neutral");
   });
 
   it("has no category when the model returned NaN", () => {

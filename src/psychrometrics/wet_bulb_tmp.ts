@@ -1,6 +1,6 @@
 /**
- * Stull's wet-bulb fit before rounding. Internal: {@link t_wb} rounds it and
- * `rh_from_wet_bulb` inverts it.
+ * Stull's wet-bulb fit before rounding. Internal: {@link wet_bulb_tmp} rounds
+ * it and `rh_from_wet_bulb` inverts it.
  *
  * @internal
  */
@@ -23,7 +23,11 @@ export function stull(tdb: number, rh: number): number {
  * @param tdb - air temperature, [°C]
  * @param rh - relative humidity, [%]
  * @returns wet-bulb temperature, [°C]
+ *
+ * @remarks
+ * Named `wet_bulb_tmp` after upstream's `wet_bulb_tmp`
+ * (`pythermalcomfort/utilities.py`); it was `t_wb` here.
  */
-export function t_wb(tdb: number, rh: number): number {
+export function wet_bulb_tmp(tdb: number, rh: number): number {
   return Math.round(stull(tdb, rh) * 10) / 10;
 }

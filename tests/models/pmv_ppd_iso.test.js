@@ -80,3 +80,36 @@ describe("pmv_ppd_iso input validation", () => {
     ).toThrow(TypeError);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Edition
+//
+// Upstream calls this parameter `model` and defaults it to "7730-2025"
+// (pythermalcomfort/models/pmv_ppd_iso.py). Both editions run the same kernel
+// over the same limits today, so the point of the parameter is that a result
+// can say which edition it was computed under — these tests pin that it stays
+// free of numerical effect, and that an unimplemented edition is rejected
+// rather than silently accepted.
+// ---------------------------------------------------------------------------
+describe("pmv_ppd_iso edition", () => {
+  const args = [25, 25, 0.1, 50, 1.2, 0.5];
+
+  test.each(["7730-2005", "7730-2025"])(
+    "%s returns the same numbers as the default",
+    (edition) => {
+      expect(pmv_ppd_iso(...args, 0, { edition })).toEqual(
+        pmv_ppd_iso(...args),
+      );
+    },
+  );
+
+  test("rejects an edition it does not implement", () => {
+    expect(() => pmv_ppd_iso(...args, 0, { edition: "7730-1994" })).toThrow(
+      /7730-2005, 7730-2025/,
+    );
+  });
+
+  test("publishes the editions it accepts, newest last", () => {
+    expect([...pmv_ppd_iso.editions]).toEqual(["7730-2005", "7730-2025"]);
+  });
+});

@@ -1,12 +1,10 @@
-import { two_nodes } from "../models/two_nodes.js";
+import { two_nodes_gagge } from "../models/two_nodes_gagge.js";
 import {
-  UNIT_SYSTEMS,
   check_standard_compliance,
   round,
-  units_converter,
   validateInputs,
 } from "../utilities/utilities.js";
-import type { UnitSystem, ValidationSchema } from "../utilities/utilities.js";
+import type { ValidationSchema } from "../utilities/utilities.js";
 
 const SET_TMP_SCHEMA = {
   tdb: { type: "number" },
@@ -16,10 +14,9 @@ const SET_TMP_SCHEMA = {
   met: { type: "number" },
   clo: { type: "number" },
   wme: { type: "number" },
-  body_surface_area: { type: "number", required: false },
-  p_atm: { type: "number", required: false },
-  body_position: { enum: ["sitting", "standing"] },
-  units: { enum: UNIT_SYSTEMS },
+  body_surface_area: { type: "number" },
+  p_atm: { type: "number" },
+  position: { enum: ["sitting", "standing"] },
   limit_inputs: { type: "boolean" },
   calculate_ce: { type: "boolean", required: false },
   round: { type: "boolean", required: false },
@@ -59,17 +56,24 @@ export interface SetTmpResult {
  * that from a person in the actual environment with actual clothing
  * and activity level [10].
  *
- * @param tdb - Dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'.
- * @param tr - Mean radiant temperature, default in [°C]
- * @param v - Air speed, default in [m/s]
+ * **SI only.** This model took a `units` parameter until upstream removed it
+ * (`f20200c`, "fix(set_tmp): updated function, check type, documentation"),
+ * which hard-codes `units="SI"` in its input validation; the signature has
+ * carried no unit system since. `cooling_effect` still takes `units`, because
+ * upstream's does too. Convert with `units_converter` if you are starting from
+ * IP.
+ *
+ * @param tdb - Dry bulb air temperature, [°C]
+ * @param tr - Mean radiant temperature, [°C]
+ * @param v - Air speed, [m/s]
  * @param rh - Relative humidity, [%].
  * @param met - Metabolic rate, [W/(m2)]
  * @param clo - Clothing insulation, [clo]
  * @param wme - External work, [W/(m2)], default 0
- * @param body_surface_area - Body surface area, default value 1.8258 [m2], in [ft2] if `units` = 'IP'
- * @param p_atm - Atmospheric pressure, default value 101325 [Pa], in [atm] if `units` = 'IP'
- * @param body_position - Select either "sitting" or "standing"
- * @param units - Select the SI (International System of Units) or the IP (Imperial Units) system.
+ * @param body_surface_area - Body surface area, default value 1.8258 [m2]
+ * @param p_atm - Atmospheric pressure, default value 101325 [Pa]
+ * @param position - Select either "sitting" or "standing". Upstream's
+ * parameter name; it was `body_position` here.
  * @param limit_inputs - By default, if the inputs are outside the following
  * limits the function returns NaN. If false returns values regardless of the
  * input values.
@@ -90,10 +94,9 @@ export function set_tmp(
   met: number,
   clo: number,
   wme = 0,
-  body_surface_area?: number,
-  p_atm?: number,
-  body_position: BodyPosition = "standing",
-  units: UnitSystem = "SI",
+  body_surface_area = 1.8258,
+  p_atm = 101325,
+  position: BodyPosition = "standing",
   limit_inputs = true,
   kwargs: SetTmpKwargs = {},
 ): SetTmpResult {
@@ -104,9 +107,6 @@ export function set_tmp(
 
   const joint_kwargs = Object.assign(defaults_kwargs, kwargs);
 
-  // toUpperCase() widens the union to string, so normalise into a local
-  // rather than reassigning the typed parameter.
-  const unitSystem = units.toUpperCase() as UnitSystem;
   validateInputs(
     {
       tdb,
@@ -118,8 +118,7 @@ export function set_tmp(
       wme,
       body_surface_area,
       p_atm,
-      body_position,
-      units: unitSystem,
+      position,
       limit_inputs,
       calculate_ce: joint_kwargs.calculate_ce,
       round: joint_kwargs.round,
@@ -127,29 +126,7 @@ export function set_tmp(
     SET_TMP_SCHEMA,
   );
 
-  if (body_surface_area === undefined)
-    body_surface_area = unitSystem === "SI" ? 1.8258 : 19.65;
-  if (p_atm === undefined) p_atm = unitSystem === "SI" ? 101325 : 1;
-
-  if (unitSystem === "IP") {
-    const unit_convert = units_converter(
-      {
-        tdb: tdb,
-        tr: tr,
-        v: v,
-        area: body_surface_area,
-        pressure: p_atm,
-      },
-      "IP",
-    );
-    tdb = unit_convert.tdb;
-    tr = unit_convert.tr;
-    v = unit_convert.v;
-    body_surface_area = unit_convert.area;
-    p_atm = unit_convert.pressure;
-  }
-
-  let set_tmp = two_nodes(
+  let set_tmp = two_nodes_gagge(
     tdb,
     tr,
     v,
@@ -159,14 +136,10 @@ export function set_tmp(
     wme,
     body_surface_area,
     p_atm,
-    body_position,
+    position,
     undefined,
     { round: false, calculate_ce: joint_kwargs.calculate_ce },
   ).set;
-
-  if (unitSystem === "IP") {
-    ({ tmp: set_tmp } = units_converter({ tmp: set_tmp }, "SI"));
-  }
 
   if (limit_inputs) {
     const warnings = check_standard_compliance("ASHRAE", {

@@ -2,6 +2,24 @@ import { quantities } from "../io/quantity.js";
 import type { Quantity } from "../io/quantity.js";
 
 /**
+ * Where in a model's evaluation the constrained value appears.
+ *
+ * A standard's applicability table is not only about arguments. ISO 7730
+ * Clause 4 also bounds the water vapour partial pressure, which the model
+ * derives from `tdb` and `rh`, and the PMV it returns. Those are not things a
+ * caller can type into a form, so a consumer gating an input panel wants the
+ * `"input"` rows alone, while one rendering the standard's applicability table
+ * wants all three.
+ *
+ * `check_standard_compliance` range-checks the `"input"` rows only. The other
+ * two are enforced where the value exists — inside `pmv_ppd`, after the
+ * derivation and after the PMV equation respectively.
+ *
+ * @public
+ */
+export type LimitRole = "input" | "derived" | "output";
+
+/**
  * One quantity's applicability range under one standard.
  *
  * The range is inclusive at both ends: a value equal to `min` or `max` is in
@@ -12,6 +30,8 @@ import type { Quantity } from "../io/quantity.js";
 export interface ApplicabilityLimit {
   /** The quantity constrained, by identity — `quantities.tdb`, not `"tdb"`. */
   readonly quantity: Quantity;
+  /** Whether the value is passed in, derived, or returned. */
+  readonly role: LimitRole;
   /** Lowest in-range value, in SI units. */
   readonly min: number;
   /** Highest in-range value, in SI units. */
@@ -32,23 +52,67 @@ export interface ApplicabilityLimit {
 }
 
 /**
+ * ISO 7730's bound on the water vapour partial pressure, which the model
+ * derives from `tdb` and `rh` as `rh × 10 × antoine(tdb)` rather than taking
+ * as an argument.
+ *
+ * `pmv_ppd` reads this row — it is not a second copy of the number — so the
+ * published table and the check cannot drift apart.
+ *
+ * @public
+ */
+export const iso7730VapourPressureLimit: ApplicabilityLimit = {
+  quantity: quantities.p_vap,
+  role: "derived",
+  min: 0,
+  max: 2700,
+  warning:
+    "ISO water vapour partial pressure applicability limits between 0 and 2700 Pa",
+};
+
+/**
+ * ISO 7730's bound on the PMV the model returns. Outside it the standard does
+ * not claim the prediction holds, so `pmv_ppd` returns NaN under
+ * `limit_inputs: true` however valid the arguments were.
+ *
+ * ASHRAE 55 has no equivalent output bound, which is why this row belongs to
+ * {@link iso7730PmvLimits} alone.
+ *
+ * @public
+ */
+export const iso7730PmvRangeLimit: ApplicabilityLimit = {
+  quantity: quantities.pmv,
+  role: "output",
+  min: -2,
+  max: 2,
+  warning: "ISO PMV applicability limits between -2 and 2",
+};
+
+/**
  * ISO 7730 applicability limits, as read by `_iso_compliance`
- * (`src/utilities/utilities.ts`).
+ * (`src/utilities/utilities.ts`) and, for the two non-input rows, by
+ * `pmv_ppd`.
  *
  * **Source, not mirror** — unlike {@link adaptiveAshraeOffsets}, the check
  * function reads these rows, so there is one copy of each number.
+ *
+ * Mirrors the seven bounds upstream lists in the `limit_inputs` block of
+ * `pythermalcomfort/models/pmv_ppd_iso.py`: 10 < tdb < 30, 10 < tr < 40,
+ * 0 < vr < 1, 0.8 < met < 4, 0 < clo < 2, 0 < pa < 2700, −2 < PMV < 2.
  *
  * @public
  */
 export const iso7730PmvLimits: readonly ApplicabilityLimit[] = [
   {
     quantity: quantities.tdb,
+    role: "input",
     min: 10,
     max: 30,
     warning: "ISO air temperature applicability limits between 10 and 30 ºC",
   },
   {
     quantity: quantities.tr,
+    role: "input",
     min: 10,
     max: 40,
     warning:
@@ -56,40 +120,46 @@ export const iso7730PmvLimits: readonly ApplicabilityLimit[] = [
   },
   {
     quantity: quantities.v,
+    role: "input",
     min: 0,
     max: 1,
     warning: "ISO air speed applicability limits between 0 and 1 m/s",
   },
   {
     quantity: quantities.vr,
+    role: "input",
     min: 0,
     max: 1,
     warning: "ISO air speed applicability limits between 0 and 1 m/s",
   },
   {
-    // NOTE: `min` is 0, not the 0.8 the warning names. jsthermalcomfort 1.4.0
-    // checks `value < 0` while printing "between 0.8 and 4.0", so the ISO lower
-    // met limit never actually fires; pythermalcomfort uses (0.8, 4.0).
-    // `tests/baseline.test.ts` pins the 1.4.0 behaviour, so the code keeps 0
-    // and the discrepancy is recorded here — as the comment in
-    // `_iso_compliance` promises.
+    // `min` was 0 while the warning said 0.8: jsthermalcomfort 1.4.0 checked
+    // `value < 0`, so the ISO lower met limit never fired. Upstream uses
+    // (0.8, 4.0) — see the `limit_inputs` block of
+    // `pythermalcomfort/models/pmv_ppd_iso.py` — and the warning was already
+    // quoting that, so 0.8 is what both the check and the message now mean.
     quantity: quantities.met,
-    min: 0,
+    role: "input",
+    min: 0.8,
     max: 4,
     warning: "ISO met applicability limits between 0.8 and 4.0 met",
   },
   {
     quantity: quantities.clo,
+    role: "input",
     min: 0,
     max: 2,
     warning: "ISO clo applicability limits between 0.0 and 2 clo",
   },
+  iso7730VapourPressureLimit,
+  iso7730PmvRangeLimit,
 ];
 
 // The three rows ASHRAE 55 constrains identically for its PMV and its adaptive
 // model. Shared by identity so "same as ASHRAE" is literally true.
 const ashraeTdb: ApplicabilityLimit = {
   quantity: quantities.tdb,
+  role: "input",
   min: 10,
   max: 40,
   warning:
@@ -98,6 +168,7 @@ const ashraeTdb: ApplicabilityLimit = {
 
 const ashraeTr: ApplicabilityLimit = {
   quantity: quantities.tr,
+  role: "input",
   min: 10,
   max: 40,
   warning:
@@ -106,6 +177,7 @@ const ashraeTr: ApplicabilityLimit = {
 
 const ashraeV: ApplicabilityLimit = {
   quantity: quantities.v,
+  role: "input",
   min: 0,
   max: 2,
   warning: "ASHRAE air speed applicability limits between 0 and 2 m/s",
@@ -127,18 +199,21 @@ export const ashrae55PmvLimits: readonly ApplicabilityLimit[] = [
   ashraeV,
   {
     quantity: quantities.vr,
+    role: "input",
     min: 0,
     max: 2,
     warning: ashraeV.warning,
   },
   {
     quantity: quantities.met,
+    role: "input",
     min: 1,
     max: 4,
     warning: "ASHRAE met applicability limits between 1.0 and 4.0 met",
   },
   {
     quantity: quantities.clo,
+    role: "input",
     min: 0,
     max: 1.5,
     warning: "ASHRAE clo applicability limits between 0.0 and 1.5 clo",
@@ -161,6 +236,7 @@ export const ashrae55AdaptiveLimits: readonly ApplicabilityLimit[] = [
   ashraeV,
   {
     quantity: quantities.t_running_mean,
+    role: "input",
     min: 10,
     max: 33.5,
     // U+00B0 DEGREE SIGN here, not the U+00BA the utilities messages use.

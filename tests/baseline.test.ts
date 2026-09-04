@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import baseline from "./fixtures/baseline-1.4.0.json" with { type: "json" };
 import * as lib from "../src/index.js";
+import { antoine } from "../src/psychrometrics/antoine.js";
 
 // Proves the TypeScript rewrite returns byte-identical results to the published
 // jsthermalcomfort@1.4.0. This is the executable form of "same as the old
@@ -135,12 +136,18 @@ const invokers: Record<string, (i: CaseInputs) => unknown> = {
       i.limit_inputs,
       i.round_output,
     ),
-  "t_o.iso": (i) => call.t_o!(i.tdb, i.tr, i.v, "ISO"),
-  "t_o.ashrae": (i) => call.t_o!(i.tdb, i.tr, i.v, "ASHRAE"),
+  // Recorded under 1.4.0's name; the function is `operative_tmp` now, and the
+  // equation is untouched, so the recorded values still have to match.
+  "t_o.iso": (i) => call.operative_tmp!(i.tdb, i.tr, i.v, "ISO"),
+  "t_o.ashrae": (i) => call.operative_tmp!(i.tdb, i.tr, i.v, "ASHRAE"),
   psy_ta_rh: (i) => call.psy_ta_rh!(i.tdb, i.rh),
   v_relative: (i) => call.v_relative!(i.v, i.met),
-  "clo_dynamic.ashrae": (i) => call.clo_dynamic!(i.clo, i.met, "ASHRAE"),
-  "clo_dynamic.iso": (i) => call.clo_dynamic!(i.clo, i.met, "ISO"),
+  "clo_dynamic.ashrae": (i) => call.clo_dynamic_ashrae!(i.clo, i.met),
+  // No `clo_dynamic.iso` invoker: 1.4.0's "ISO" branch applied the ASHRAE
+  // formula with the threshold moved to met > 1, which is neither standard's
+  // equation. `clo_dynamic_iso` replaces it and does not even take the same
+  // arguments, so the recorded shape has nothing to be replayed against — see
+  // the divergence entry below.
   cooling_effect: (i) =>
     call.cooling_effect!(i.tdb, i.tdb, i.vr, 50, 1.2, 0.5, 0),
   set_tmp: (i) => call.set_tmp!(i.tdb, i.tdb, i.vr, 50, 1.2, 0.5),
@@ -160,11 +167,83 @@ const requiredExport: Record<string, string> = {
   "pmv_ppd_ashrae.kwargs": "pmv_ppd_ashrae",
   "adaptive_ashrae.flags": "adaptive_ashrae",
   "adaptive_en.flags": "adaptive_en",
-  "t_o.iso": "t_o",
-  "t_o.ashrae": "t_o",
-  "clo_dynamic.ashrae": "clo_dynamic",
-  "clo_dynamic.iso": "clo_dynamic",
+  "t_o.iso": "operative_tmp",
+  "t_o.ashrae": "operative_tmp",
+  "clo_dynamic.ashrae": "clo_dynamic_ashrae",
 };
+
+/**
+ * Result fields renamed since 1.4.0, per recorded group.
+ *
+ * A rename is not a divergence: the numbers are unchanged, only what they are
+ * called. Exempting these cases would throw the value check away with the old
+ * name, so the recorded object is re-keyed and still compared in full.
+ */
+const renamedFields: Readonly<
+  Record<string, Readonly<Record<string, string>>>
+> = {
+  // `psy_ta_rh` now returns upstream's `PsychrometricValues` field names
+  // (`pythermalcomfort/classes_return.py`).
+  psy_ta_rh: { t_wb: "wet_bulb_tmp", t_dp: "dew_point_tmp" },
+};
+
+/** Applies {@link renamedFields} to one recorded result. */
+function rekey(model: string, expected: unknown): unknown {
+  const map = renamedFields[model];
+  if (map === undefined || expected === null || typeof expected !== "object")
+    return expected;
+  return Object.fromEntries(
+    Object.entries(expected as Record<string, unknown>).map(([key, value]) => [
+      map[key] ?? key,
+      value,
+    ]),
+  );
+}
+
+/**
+ * Deliberate departures from 1.4.0, each aligning this package to a rule
+ * upstream applies. A case an entry covers is expected to differ and is left
+ * out of the byte comparison; every other case still has to match exactly.
+ *
+ * Written as predicates over the recorded inputs, not as edits to the fixture:
+ * the fixture is generated from the published 1.4.0 package and must keep
+ * saying what 1.4.0 did, so the divergence is recorded here instead.
+ */
+const divergences: readonly {
+  readonly reason: string;
+  readonly covers: (model: string, inputs: CaseInputs) => boolean;
+}[] = [
+  {
+    // `met_valid = valid_range(met, (0.8, 4.0))` in the limit_inputs block of
+    // pythermalcomfort/models/pmv_ppd_iso.py. 1.4.0 checked `met < 0` while its
+    // own warning already said 0.8, so the lower bound never fired.
+    reason: "ISO met lower bound corrected from 0 to 0.8",
+    covers: (model, i) =>
+      (model === "pmv_ppd_iso" ||
+        (model === "check_standard_compliance" && i.standard === "ISO")) &&
+      i.met < 0.8,
+  },
+  {
+    // `pa_valid = valid_range(pa, (0.0, 2700.0))` in the same block. 1.4.0 did
+    // not check the derived vapour pressure at all.
+    reason: "ISO vapour-pressure bound (pa <= 2700 Pa) now enforced",
+    covers: (model, i) =>
+      model === "pmv_ppd_iso" && i.rh * 10 * antoine(i.tdb) > 2700,
+  },
+  {
+    // `clo_dynamic(clo, met, "ISO")` applied the ASHRAE formula with the
+    // threshold moved to met > 1 — neither standard's equation. Upstream split
+    // the function in two (`clo_dynamic_ashrae`, `clo_dynamic_iso` in
+    // pythermalcomfort/utilities.py) and the ISO one is the ISO 9920:2007
+    // Annex C correction, which needs the air speed. Every recorded case of
+    // this shape is superseded; the ASHRAE half still matches exactly.
+    reason: "clo_dynamic's ISO branch replaced by clo_dynamic_iso",
+    covers: (model) => model === "clo_dynamic.iso",
+  },
+];
+
+const isDivergent = (model: string, inputs: CaseInputs): boolean =>
+  divergences.some((d) => d.covers(model, inputs));
 
 const cases = (baseline as { cases: Case[] }).cases;
 const groups = [...new Set(cases.map((c) => c.model))].sort();
@@ -180,7 +259,48 @@ describe(`parity with jsthermalcomfort@${(baseline as { referenceVersion: string
     expect(nanCases).toBeLessThan(cases.length);
   });
 
+  it.each(divergences.map((d) => [d.reason, d] as const))(
+    "deliberate divergence is still live: %s",
+    (_reason, divergence) => {
+      // An exemption that no longer changes any recorded case is dead weight
+      // that silently widens what the parity check will accept. Require both
+      // that it still covers cases and that at least one of them really differs.
+      const covered = cases.filter((c) =>
+        divergence.covers(c.model, c.inputs as unknown as CaseInputs),
+      );
+      expect(covered.length).toBeGreaterThan(0);
+
+      const differing = covered.filter((c) => {
+        const invoke = invokers[c.model];
+        // No invoker registered: the recorded shape no longer exists at all,
+        // which is itself the difference the entry claims.
+        if (invoke === undefined) return true;
+        try {
+          return (
+            sameValue(
+              invoke(c.inputs as unknown as CaseInputs),
+              rekey(c.model, revive(c.ok)),
+              "",
+            ) !== null
+          );
+        } catch {
+          return true;
+        }
+      });
+      expect(differing.length).toBeGreaterThan(0);
+    },
+  );
+
   it.each(groups)("%s", (model) => {
+    const recorded = cases.filter((c) => c.model === model);
+    const remaining = recorded.filter(
+      (c) => !isDivergent(model, c.inputs as unknown as CaseInputs),
+    );
+    // A group every divergence entry covers is wholly superseded — the shape
+    // it recorded no longer exists. The "still live" test above is what keeps
+    // that claim honest, so there is nothing left to replay here.
+    if (remaining.length === 0) return;
+
     const exportName = requiredExport[model] ?? model;
     expect(
       typeof call[exportName],
@@ -191,7 +311,7 @@ describe(`parity with jsthermalcomfort@${(baseline as { referenceVersion: string
     expect(invoke, `no invoker registered for ${model}`).toBeDefined();
 
     const failures: string[] = [];
-    for (const testCase of cases.filter((c) => c.model === model)) {
+    for (const testCase of remaining) {
       const inputs = testCase.inputs as unknown as CaseInputs;
       let actual: Captured;
       try {
@@ -219,7 +339,7 @@ describe(`parity with jsthermalcomfort@${(baseline as { referenceVersion: string
       }
       const bad = sameValue(
         actual.ok,
-        revive(testCase.ok),
+        rekey(model, revive(testCase.ok)),
         JSON.stringify(inputs),
       );
       if (bad) failures.push(bad);
@@ -227,7 +347,7 @@ describe(`parity with jsthermalcomfort@${(baseline as { referenceVersion: string
 
     expect(
       failures.slice(0, 5),
-      `${failures.length} of ${cases.filter((c) => c.model === model).length} cases diverged`,
+      `${failures.length} of ${remaining.length} compared cases diverged (${recorded.length - remaining.length} deliberately excluded)`,
     ).toEqual([]);
   });
 });

@@ -4,11 +4,11 @@ import type { BodyPosition } from "./set_tmp.js";
 import type { ValidationSchema } from "../utilities/utilities.js";
 
 /**
- * Optional overrides accepted by {@link two_nodes}.
+ * Optional overrides accepted by {@link two_nodes_gagge}.
  *
  * @public
  */
-export interface TwoNodesKwargs {
+export interface TwoNodesGaggeKwargs {
   /** Round the result of the two-node model. Default `true`. */
   round?: boolean;
   /** Select if SET is used to calculate the Cooling Effect. Default `false`. */
@@ -23,18 +23,21 @@ export interface TwoNodesKwargs {
 }
 
 /**
- * What {@link two_nodes} returns with the default `round: true`.
+ * What {@link two_nodes_gagge} returns with the default `round: true`.
+ *
+ * Upstream's return class is `GaggeTwoNodes`
+ * (`pythermalcomfort/classes_return.py`); the fields are the same.
  *
  * The two other shapes are narrower or differently spelled:
  * - with `calculate_ce: true`, only `set` is returned;
  * - with `round: false`, the same eighteen quantities come back under the
  *   model's internal camelCase names (`eSkin`, `eRsw`, `qSensible`, …) rather
  *   than the snake_case ones below. That asymmetry is inherited from
- *   jsthermalcomfort 1.4.0 and pinned by `tests/baseline.test.ts`.
+ *   jsthermalcomfort 1.4.0.
  *
  * @public
  */
-export interface TwoNodesResult {
+export interface TwoNodesGaggeResult {
   /** Total rate of evaporative heat loss from skin, [W/m2]. Equal to `e_rsw + e_diff` */
   e_skin: number;
   /** Rate of evaporative heat loss from sweat evaporation, [W/m2] */
@@ -82,8 +85,8 @@ const TWO_NODES_SCHEMA = {
   clo: { type: "number" },
   wme: { type: "number" },
   body_surface_area: { type: "number" },
-  p_atmospheric: { type: "number" },
-  body_position: { enum: ["sitting", "standing"] },
+  p_atm: { type: "number" },
+  position: { enum: ["sitting", "standing"] },
   max_skin_blood_flow: { type: "number" },
   calculate_ce: { type: "boolean", required: false },
   round: { type: "boolean", required: false },
@@ -124,34 +127,40 @@ const TWO_NODES_SCHEMA = {
  * @param met - Metabolic rate, [W/(m2)]
  * @param clo - Clothing insulation, [clo]
  * @param wme - External work, [W/(m2)], default 0
- * @param body_surface_area - Body surface area, default value 1.8258 [m2], in [ft2] if `units` = 'IP'
- * @param p_atmospheric - Atmospheric pressure, default value 101325 [Pa], in [atm] if `units` = 'IP'
- * @param body_position - Select either "sitting" or "standing"
+ * @param body_surface_area - Body surface area, default value 1.8258 [m2]
+ * @param p_atm - Atmospheric pressure, default value 101325 [Pa]. Upstream's
+ * parameter name; it was `p_atmospheric` here.
+ * @param position - Select either "sitting" or "standing". Upstream's
+ * parameter name; it was `body_position` here.
  * @param max_skin_blood_flow - Maximum blood flow from the core to the skin, [kg/h/m2], default 90
- * @param kwargs - Optional overrides; see {@link TwoNodesKwargs}
+ * @param kwargs - Optional overrides; see {@link TwoNodesGaggeKwargs}
  *
- * @returns a {@link TwoNodesResult} by default. With `calculate_ce: true` only
- * `set` is returned; with `round: false` the same quantities come back under
- * camelCase names.
+ * @returns a {@link TwoNodesGaggeResult} by default. With `calculate_ce: true`
+ * only `set` is returned; with `round: false` the same quantities come back
+ * under camelCase names.
+ *
+ * @remarks
+ * Named `two_nodes_gagge` after upstream's `two_nodes_gagge`
+ * (`pythermalcomfort/models/two_nodes_gagge.py`); it was `two_nodes` here.
  *
  * @public
  * @category Models
  *
  * @example
- * const results = two_nodes(25, 25, 0.3, 50, 1.2, 0.5);
+ * const results = two_nodes_gagge(25, 25, 0.3, 50, 1.2, 0.5);
  * console.log(results);
  * // {
- * //   e_skin: 16.2, e_rsw: 7, e_max: 159.9,
- * //   q_sensible: 47.6, q_skin: 63.8, q_res: 5.2,
- * //   t_core: 36.9, t_skin: 33.7,
- * //   m_bl: 12.9, m_rsw: 10.3,
- * //   w: 0.1, w_max: 0.6,
- * //   set: 23.6, et: 25,
- * //   pmv_gagge: 0.1, pmv_set: -0,
- * //   disc: 0.1, t_sens: 0.1
+ * //   e_skin: 16.17, e_rsw: 7, e_max: 159.87,
+ * //   q_sensible: 47.61, q_skin: 63.79, q_res: 5.16,
+ * //   t_core: 36.86, t_skin: 33.71,
+ * //   m_bl: 12.92, m_rsw: 10.3,
+ * //   w: 0.1, w_max: 0.65,
+ * //   set: 23.56, et: 25,
+ * //   pmv_gagge: 0.11, pmv_set: -0.01,
+ * //   disc: 0.11, t_sens: 0.09
  * // }
  */
-export function two_nodes(
+export function two_nodes_gagge(
   tdb: number,
   tr: number,
   v: number,
@@ -160,8 +169,8 @@ export function two_nodes(
   clo: number,
   wme = 0,
   body_surface_area = 1.8258,
-  p_atmospheric = 101325,
-  body_position: BodyPosition = "standing",
+  p_atm = 101325,
+  position: BodyPosition = "standing",
   max_skin_blood_flow = 90,
   kwargs = {},
 ) {
@@ -171,7 +180,10 @@ export function two_nodes(
     max_sweating: 500,
   };
 
-  const joint_kwargs: TwoNodesKwargs = Object.assign(defaults_kwargs, kwargs);
+  const joint_kwargs: TwoNodesGaggeKwargs = Object.assign(
+    defaults_kwargs,
+    kwargs,
+  );
 
   if (joint_kwargs.w_max === false) joint_kwargs.w_max = undefined;
 
@@ -185,8 +197,8 @@ export function two_nodes(
       clo,
       wme,
       body_surface_area,
-      p_atmospheric,
-      body_position,
+      p_atm,
+      position,
       max_skin_blood_flow,
       calculate_ce: joint_kwargs.calculate_ce,
       round: joint_kwargs.round,
@@ -208,8 +220,8 @@ export function two_nodes(
       vapor_pressure,
       wme,
       body_surface_area,
-      p_atmospheric,
-      body_position,
+      p_atm,
+      position,
       max_skin_blood_flow,
       { calculate_ce: true },
     );
@@ -227,32 +239,37 @@ export function two_nodes(
     vapor_pressure,
     wme,
     body_surface_area,
-    p_atmospheric,
-    body_position,
+    p_atm,
+    position,
     max_skin_blood_flow,
     joint_kwargs,
   );
 
   if (joint_kwargs.round) {
+    // Two decimals, matching upstream's `np.around(output[key], 2)` over every
+    // returned quantity (pythermalcomfort/models/two_nodes_gagge.py). One
+    // decimal — what jsthermalcomfort 1.4.0 used — is too coarse for the
+    // adimensional fields: skin wettedness `w` reads 0.1 where the shared
+    // validation data says 0.12.
     return {
-      e_skin: round(result.eSkin, 1),
-      e_rsw: round(result.eRsw, 1),
-      e_max: round(result.eMax, 1),
-      q_sensible: round(result.qSensible, 1),
-      q_skin: round(result.qSkin, 1),
-      q_res: round(result.qRes, 1),
-      t_core: round(result.tCore, 1),
-      t_skin: round(result.tSkin, 1),
-      m_bl: round(result.mBl, 1),
-      m_rsw: round(result.mRsw, 1),
-      w: round(result.w, 1),
-      w_max: round(result.wMax, 1),
-      set: round(result.set, 1),
-      et: round(result.et, 1),
-      pmv_gagge: round(result.pmvGagge, 1),
-      pmv_set: round(result.pmvSet, 1),
-      disc: round(result.disc, 1),
-      t_sens: round(result.tSens, 1),
+      e_skin: round(result.eSkin, 2),
+      e_rsw: round(result.eRsw, 2),
+      e_max: round(result.eMax, 2),
+      q_sensible: round(result.qSensible, 2),
+      q_skin: round(result.qSkin, 2),
+      q_res: round(result.qRes, 2),
+      t_core: round(result.tCore, 2),
+      t_skin: round(result.tSkin, 2),
+      m_bl: round(result.mBl, 2),
+      m_rsw: round(result.mRsw, 2),
+      w: round(result.w, 2),
+      w_max: round(result.wMax, 2),
+      set: round(result.set, 2),
+      et: round(result.et, 2),
+      pmv_gagge: round(result.pmvGagge, 2),
+      pmv_set: round(result.pmvSet, 2),
+      disc: round(result.disc, 2),
+      t_sens: round(result.tSens, 2),
     };
   }
   return result;
@@ -302,7 +319,7 @@ function calculate_metabolic_rate(met: number, wme: number) {
 function calculate_w_max(
   airSpeed: number,
   clo: number,
-  kwargs: TwoNodesKwargs,
+  kwargs: TwoNodesGaggeKwargs,
 ) {
   if (kwargs.w_max) return kwargs.w_max;
   if (clo > 0) return 0.59 * Math.pow(airSpeed, -0.08);
@@ -507,19 +524,6 @@ function calculate_pmv_set(
 }
 
 /**
- * Calculate Predicted  Percent  Satisfied  With  the  Level  of  Air  Movement
- *
- * @param tOp operative temperature
- * @param v Air speed, default in [m/s]
- * @returns predicted percent satisfied
- */
-function calculate_percent_satisfied(tOp: number, v: number) {
-  return (
-    100 * (1.13 * Math.sqrt(tOp) - 0.24 * tOp + 2.7 * Math.sqrt(v) - 0.99 * v)
-  );
-}
-
-/**
  * @param tdb Dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'.
  * @param tr Mean radiant temperature, default in [°C]
  * @param v Air speed, default in [m/s]
@@ -546,9 +550,9 @@ function calculate_two_nodes(
   pAtmospheric: number,
   bodyPosition: BodyPosition,
   maxSkinBloodFlow: number,
-  kwargs: TwoNodesKwargs,
+  kwargs: TwoNodesGaggeKwargs,
 ) {
-  // two_nodes always passes the merged defaults, but the type stays optional so
+  // two_nodes_gagge always passes the merged defaults, but the type stays optional so
   // the shape matches the public kwargs. Falling back to the same default keeps
   // the two in step.
   const maxSweating = kwargs.max_sweating ?? 500;
@@ -747,7 +751,11 @@ function calculate_two_nodes(
     cRes,
     qRes,
   );
-  const ps = calculate_percent_satisfied(tOp, v);
+  // Predicted Percent Satisfied With the Level of Air Movement was computed
+  // here and thrown away — `GaggeTwoNodes` has no such field upstream either,
+  // where the formula survives only as a comment in
+  // `pythermalcomfort/models/two_nodes_gagge.py`:
+  //   ps = 100 * (1.13 * t_op**0.5 - 0.24 * t_op + 2.7 * v**0.5 - 0.99 * v)
 
   return {
     set,

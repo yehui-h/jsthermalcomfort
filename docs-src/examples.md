@@ -14,7 +14,7 @@ import { pmv_ppd_iso, adaptive_ashrae } from "jsthermalcomfort";
 
 // PMV / PPD per ISO 7730.
 // Note vr is the *relative* air speed and clo the *dynamic* insulation —
-// use v_relative() and clo_dynamic() if you are starting from sensor readings.
+// use v_relative() and clo_dynamic_iso() if you are starting from sensor readings.
 pmv_ppd_iso(25, 25, 0.1, 50, 1.2, 0.5);
 // → { pmv: 0.08, ppd: 5.1 }
 
@@ -34,22 +34,29 @@ pmv_ppd_iso(25, 25, 0.1, 50, 0.5, 0.5).pmv;
 Starting from measured values rather than corrected ones:
 
 ```js
-import { v_relative, clo_dynamic } from "jsthermalcomfort/utilities";
+import { v_relative, clo_dynamic_iso } from "jsthermalcomfort/utilities";
 
 const met = 1.4;
-const vr = v_relative(0.1, met); // adds the body-movement component
-const clo = clo_dynamic(0.5, met, "ISO"); // corrects for activity
+const v = 0.1;
+const vr = v_relative(v, met); // adds the body-movement component
+// ISO 7730 Annex C: the correction needs the air speed as well as the
+// activity. For ASHRAE 55 use clo_dynamic_ashrae(0.5, met), which does not.
+const clo = clo_dynamic_iso(0.5, met, v);
 pmv_ppd_iso(25, 25, vr, 50, met, clo);
 ```
 
 Psychrometrics:
 
 ```js
-import { psy_ta_rh, t_dp, t_wb } from "jsthermalcomfort/psychrometrics";
+import {
+  psy_ta_rh,
+  dew_point_tmp,
+  wet_bulb_tmp,
+} from "jsthermalcomfort/psychrometrics";
 
-psy_ta_rh(21, 56); // { p_sat, p_vap, hr, t_wb, t_dp, h }
-t_dp(21, 56); // dew point, °C
-t_wb(21, 56); // wet-bulb, °C
+psy_ta_rh(21, 56); // { p_sat, p_vap, hr, wet_bulb_tmp, dew_point_tmp, h }
+dew_point_tmp(21, 56); // dew point, °C
+wet_bulb_tmp(21, 56); // wet-bulb, °C
 ```
 
 ## Reference data

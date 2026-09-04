@@ -59,7 +59,7 @@ export default tseslint.config(
       "src/models/cooling_effect.ts",
       "src/models/pmv_ppd_ashrae.ts",
       "src/models/set_tmp.ts",
-      "src/models/two_nodes.ts",
+      "src/models/two_nodes_gagge.ts",
     ],
     rules: {
       "no-useless-assignment": "off",

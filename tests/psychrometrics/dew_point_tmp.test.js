@@ -1,7 +1,7 @@
 import { expect, describe, it } from "vitest";
-import { t_dp } from "../../src/psychrometrics/t_dp";
+import { dew_point_tmp } from "../../src/psychrometrics/dew_point_tmp";
 
-describe("t_dp", () => {
+describe("dew_point_tmp", () => {
   it.each([
     { tdb: 31.6, rh: 59.6, expected: 22.6 },
     { tdb: 29.3, rh: 75.4, expected: 24.3 },
@@ -9,7 +9,7 @@ describe("t_dp", () => {
   ])(
     "returns $expected when airTemperature is $airTemperature and relativeHumidity is $relativeHumidity",
     ({ tdb, rh, expected }) => {
-      const result = t_dp(tdb, rh);
+      const result = dew_point_tmp(tdb, rh);
       expect(Math.abs(result - expected)).toBeLessThanOrEqual(0.0001);
     },
   );

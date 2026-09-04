@@ -1,4 +1,4 @@
-import { t_o } from "../psychrometrics/t_o.js";
+import { operative_tmp } from "../psychrometrics/operative_tmp.js";
 import { round } from "./round.js";
 // Leaf import on purpose: `reference/limits.js` reaches only `io/quantity.js`,
 // which type-imports this module and nothing else at runtime. Importing
@@ -28,15 +28,32 @@ export interface ComplianceKwargs {
 }
 
 /**
- * Standard names accepted by {@link check_standard_compliance}.
+ * Which applicability check {@link check_standard_compliance} runs.
+ *
+ * **Was `Standard`**, renamed so three different ideas stop sharing one word:
+ *
+ * - `standards` / `StandardRef` (`src/reference/standards.ts`) — the standard a
+ *   model *belongs to*. That set includes EN 16798-1, which has no check here
+ *   at all, so it is not this set.
+ * - `edition` (`pmv_ppd_iso`, `clo_dynamic_iso`, …) — *which edition* of a
+ *   standard. Upstream spells that one `model`, which collides again.
+ * - this — a dispatch key naming one of the two applicability tables in
+ *   `src/reference/limits.ts`.
+ *
+ * Upstream has no counterpart: it replaced the unified compliance check with
+ * inline `valid_range` calls per model. This package publishes the tables
+ * instead, which is why the dispatch key survives.
+ *
+ * @public
  */
-export const Standard = Object.freeze({
+export const ComplianceCheck = Object.freeze({
   ASHRAE: "ASHRAE",
   ISO: "ISO",
 } as const);
 
-/** One of the standard identifiers listed in {@link Standard}. */
-export type Standard = (typeof Standard)[keyof typeof Standard];
+/** One of the check identifiers listed in {@link ComplianceCheck}. */
+export type ComplianceCheck =
+  (typeof ComplianceCheck)[keyof typeof ComplianceCheck];
 
 /**
  * Check that the values comply with the standard provided
@@ -47,13 +64,13 @@ export type Standard = (typeof Standard)[keyof typeof Standard];
  * @returns strings with warnings emitted
  */
 export function check_standard_compliance(
-  standard: Standard,
+  standard: ComplianceCheck,
   kwargs: ComplianceKwargs,
 ): string[] {
   switch (standard) {
-    case Standard.ASHRAE:
+    case ComplianceCheck.ASHRAE:
       return _ashrae_compliance(kwargs);
-    case Standard.ISO:
+    case ComplianceCheck.ISO:
       return _iso_compliance(kwargs);
     default:
       throw new Error("Unknown standard");
@@ -80,7 +97,13 @@ function _range_warnings(
     // `Quantity` object the table rows also point at, so the two can never
     // drift apart the way two copies of a string can.
     const quantity = quantityFor(key);
-    const limit = limits.find((row) => row.quantity === quantity);
+    // `role: "input"` only. A table may also carry rows for values the model
+    // derives or returns (ISO 7730's vapour pressure and PMV bounds); those
+    // are not arguments, so they are enforced where the value exists rather
+    // than here.
+    const limit = limits.find(
+      (row) => row.quantity === quantity && row.role === "input",
+    );
     if (limit === undefined) continue;
     if (value < limit.min || value > limit.max) warnings.push(limit.warning);
   }
@@ -115,7 +138,7 @@ function _ashrae_compliance(kwargs: ComplianceKwargs): string[] {
     const v = kwargs.v;
     const met = kwargs.met;
     const clo = kwargs.clo;
-    const to = t_o(kwargs.tdb, kwargs.tr, v);
+    const to = operative_tmp(kwargs.tdb, kwargs.tr, v);
     const v_limit = 50.49 - 4.4047 * to + 0.096425 * to * to;
     const violates =
       (v > 0.8 && clo < 0.7 && met < 1.3) ||
@@ -136,9 +159,9 @@ function _ashrae_compliance(kwargs: ComplianceKwargs): string[] {
  * @returns strings with warnings emitted
  */
 function _iso_compliance(kwargs: ComplianceKwargs): string[] {
-  // Every bound and every message lives in `iso7730PmvLimits`, including the
-  // met row whose lower bound is 0 while its message says 0.8 — that
-  // discrepancy is documented there.
+  // Every bound and every message lives in `iso7730PmvLimits`. Its two
+  // non-input rows — the derived vapour pressure and the returned PMV — are
+  // not arguments of this function and are checked inside `pmv_ppd`.
   return _range_warnings(kwargs, iso7730PmvLimits);
 }
 
@@ -206,42 +229,184 @@ function _v_relative_single(v: number, met: number): number {
   return Math.round((v + 0.3 * (met - 1) + Number.EPSILON) * 1000) / 1000;
 }
 
-/** Standards for which a dynamic clothing correction is defined. */
-export type ClothingStandard = "ASHRAE" | "ISO";
+/**
+ * ASHRAE 55 edition implemented by {@link clo_dynamic_ashrae}.
+ *
+ * This is upstream's `model` parameter, renamed: in this package and in its
+ * consumers `model` already means "a model function", so `model="55-2023"`
+ * reads as a category error. See {@link clo_dynamic_ashrae}.
+ *
+ * @public
+ */
+export type ClothingEditionAshrae = "55-2023";
 
 /**
- * Estimates the dynamic clothing insulation of a moving occupant. The activity as
- * well as the air speed modify the insulation characteristics of the clothing and the
- * adjacent air layer. Consequently, the ISO 7730 states that the clothing insulation
- * shall be corrected [2]. The ASHRAE 55 Standard corrects for the effect
- * of the body movement for met equal or higher than 1.2 met using the equation
- * clo = Icl × (0.6 + 0.4/met)
+ * ISO 9920 edition implemented by {@link clo_dynamic_iso}. Upstream's `model`
+ * parameter, renamed for the reason given on {@link ClothingEditionAshrae}.
+ *
+ * @public
+ */
+export type ClothingEditionIso = "9920-2007";
+
+/** One met in [W/m2]. Upstream's `met_to_w_m2` (`pythermalcomfort/utilities.py`). */
+const MET_TO_W_M2 = 58.15;
+
+/**
+ * Estimates the dynamic intrinsic clothing insulation under ASHRAE 55.
+ *
+ * Activity modifies the insulation characteristics of the clothing, so ASHRAE
+ * 55 corrects the intrinsic insulation for body movement above 1.2 met with
+ * `Icl,r = Icl × (0.6 + 0.4/met)`. At or below 1.2 met the clothing is
+ * returned unchanged.
+ *
+ * Mirrors upstream `clo_dynamic_ashrae` (`pythermalcomfort/utilities.py`).
  *
  * @public
  * @category Utilities
  *
- * @param clo - clothing insulation, [clo]
+ * @param clo - basic (intrinsic) clothing insulation under reference conditions, [clo]
  * @param met - metabolic rate, [met]
- * @param [standard="ASHRAE"] - If "ASHRAE", uses Equation provided in Section 5.2.2.2 of ASHRAE 55 2020
- * @returns dunamic clothing insulation, [clo]
+ * @param edition - ASHRAE 55 edition; `"55-2023"` is the only one implemented.
+ * Upstream spells this parameter `model`.
+ * @returns dynamic clothing insulation, [clo]
+ *
+ * @example
+ * clo_dynamic_ashrae(0.5, 1.4); // 0.443
  */
-export function clo_dynamic(
+export function clo_dynamic_ashrae(
   clo: number,
   met: number,
-  standard: ClothingStandard = "ASHRAE",
+  edition: ClothingEditionAshrae = "55-2023",
 ): number {
-  if (standard !== "ASHRAE" && standard !== "ISO")
+  if (edition !== "55-2023")
     throw new Error(
-      "only the ISO 7730 and ASHRAE 55 2020 models have been implemented",
+      "only the ASHRAE 55-2023 dynamic clothing model has been implemented",
     );
-  if ((standard === "ASHRAE" && met <= 1.2) || (standard === "ISO" && met <= 1))
-    return clo;
+  if (met <= 1.2) return clo;
   return _clo_dynamic_single(clo, met);
 }
 
 /** Same `Number.EPSILON` rounding as `_v_relative_single`, and same reason. */
 function _clo_dynamic_single(clo: number, met: number): number {
   return Math.round((clo * (0.6 + 0.4 / met) + Number.EPSILON) * 1000) / 1000;
+}
+
+/**
+ * Estimates the dynamic intrinsic clothing insulation under ISO 9920:2007.
+ *
+ * Both editions of ISO 7730 give this correction in their informative Annex C,
+ * adapted from ISO 9920:2007. Unlike the ASHRAE formula it needs the air
+ * speed: movement and wind strip insulation from the clothing and from the
+ * boundary air layer at different rates, so the correction is applied to the
+ * total insulation and the air layer separately and then recombined.
+ *
+ * The walking speed is not an argument. Where it is undefined, ISO 7730 Annex
+ * C / ISO 9920 estimate it from the metabolic rate as
+ * `v_walk = 0.0052 × (M − 58)`, clipped to 0–0.7 m/s, with M in [W/m2]. That
+ * is a different formula from {@link v_relative}'s activity-generated air
+ * speed `0.3 × (met − 1)`, which belongs to the whole-body heat balance rather
+ * than to this correction.
+ *
+ * Mirrors upstream `clo_dynamic_iso` (`pythermalcomfort/utilities.py`),
+ * including its unrounded return. The ISO 9920 helpers it composes
+ * (`clo_area_factor`, `clo_total_insulation`, `clo_insulation_air_layer`) are
+ * public upstream but stay private here — nothing in this package or its
+ * consumers calls them on their own, and an export with no caller is API to
+ * maintain for free. Promote them if that changes.
+ *
+ * @public
+ * @category Utilities
+ *
+ * @param clo - basic (intrinsic) clothing insulation under reference conditions, [clo]
+ * @param met - metabolic rate, [met]
+ * @param v - air speed, [m/s]
+ * @param i_a - insulation of the boundary air layer around the outer clothing,
+ * or around the skin when nude, [clo]
+ * @param edition - ISO 9920 edition; `"9920-2007"` is the only one implemented.
+ * Upstream spells this parameter `model`.
+ * @returns dynamic clothing insulation, [clo]
+ *
+ * @example
+ * clo_dynamic_iso(0.5, 1.4, 0.2); // 0.40526...
+ */
+export function clo_dynamic_iso(
+  clo: number,
+  met: number,
+  v: number,
+  i_a = 0.7,
+  edition: ClothingEditionIso = "9920-2007",
+): number {
+  if (edition !== "9920-2007")
+    throw new Error(
+      "only the ISO 9920-2007 dynamic clothing model has been implemented",
+    );
+
+  const f_cl = 1 + 0.28 * clo; // clothing area factor, ISO 9920 Section 5
+  const i_t = clo + i_a / f_cl;
+  const v_walk = Math.min(Math.max(0.0052 * (met * MET_TO_W_M2 - 58), 0), 0.7);
+  const v_r = v_relative(v, met);
+
+  const i_t_r = _clo_total_insulation(i_t, v_r, v_walk, i_a, clo);
+  const i_a_r = _clo_insulation_air_layer(v_r, v_walk, i_a);
+  return i_t_r - i_a_r / f_cl;
+}
+
+/** ISO 9920 correction factor for a nude body, and for the air layer. */
+function _correction_nude(vr: number, v_walk: number): number {
+  return Math.exp(
+    -0.533 * (vr - 0.15) +
+      0.069 * (vr - 0.15) ** 2 -
+      0.462 * v_walk +
+      0.201 * v_walk ** 2,
+  );
+}
+
+/** ISO 9920 correction factor for normal clothing. */
+function _correction_normal_clothing(vr: number, v_walk: number): number {
+  return Math.exp(
+    -0.281 * (vr - 0.15) +
+      0.044 * (vr - 0.15) ** 2 -
+      0.492 * v_walk +
+      0.176 * v_walk ** 2,
+  );
+}
+
+/**
+ * Insulation of the boundary air layer, [clo]. ISO 9920:2009 Section 6.
+ *
+ * The correction is the nude one: upstream repeats the expression inline in
+ * `clo_insulation_air_layer` rather than reusing `_correction_nude`, but the
+ * two are character for character the same.
+ */
+function _clo_insulation_air_layer(
+  vr: number,
+  v_walk: number,
+  i_a_static: number,
+): number {
+  return _correction_nude(vr, v_walk) * i_a_static;
+}
+
+/**
+ * Total insulation of the clothing ensemble under movement, [clo].
+ * ISO 9920:2009 Annex A.
+ *
+ * Three regimes, by intrinsic insulation: nude (`i_cl = 0`), very light
+ * clothing (`i_cl <= 0.6`, interpolated between nude and normal), and normal
+ * clothing. The equation for high insulation (`i_t > 2.0 clo`) is not
+ * implemented upstream either, so this function is limited to `i_t < 2.0 clo`.
+ */
+function _clo_total_insulation(
+  i_t: number,
+  vr: number,
+  v_walk: number,
+  i_a_static: number,
+  i_cl: number,
+): number {
+  const nude = i_a_static * _correction_nude(vr, v_walk);
+  if (i_cl === 0) return nude;
+  const normal = i_t * _correction_normal_clothing(vr, v_walk);
+  if (i_cl <= 0.6) return ((0.6 - i_cl) * nude + i_cl * normal) / 0.6;
+  return normal;
 }
 
 /**
@@ -480,63 +645,36 @@ export const met_typical_tasks = {
   Wrestling: 7.8,
 };
 
-/** Ensembles recognised by {@link clo_typical_ensembles}. */
-export type ClothingEnsemble =
-  | "Walking shorts, short-sleeve shirt"
-  | "Typical summer indoor clothing"
-  | "Knee-length skirt, short-sleeve shirt, sandals, underwear"
-  | "Trousers, short-sleeve shirt, socks, shoes, underwear"
-  | "Trousers, long-sleeve shirt"
-  | "Knee-length skirt, long-sleeve shirt, full slip"
-  | "Sweat pants, long-sleeve sweatshirt"
-  | "Jacket, Trousers, long-sleeve shirt"
-  | "Typical winter indoor clothing";
-
 /**
- * Total Clothing insulation of typical ensembles
+ * Total clothing insulation of typical ensembles, [clo].
  *
- * @param ensembles - Typical ensembles. One of:
- *   - "Walking shorts, short-sleeve shirt"
- *   - "Typical summer indoor clothing"
- *   - "Knee-length skirt, short-sleeve shirt, sandals, underwear"
- *   - "Trousers, short-sleeve shirt, socks, shoes, underwear"
- *   - "Trousers, long-sleeve shirt"
- *   - "Knee-length skirt, long-sleeve shirt, full slip"
- *   - "Sweat pants, long-sleeve sweatshirt"
- *   - "Jacket, Trousers, long-sleeve shirt"
- *   - "Typical winter indoor clothing"
- * @returns Clothing insulation of the given ensembles
+ * A lookup table, as upstream's `clo_typical_ensembles`
+ * (`pythermalcomfort/utilities.py`) is; it was a function taking the ensemble
+ * name here. `clo_individual_garments` below was already a table, so the two
+ * reference tables now read the same way. An unknown key reads `undefined`
+ * rather than throwing — index it with {@link ClothingEnsemble} and the
+ * compiler catches a typo instead.
  *
  * @public
  * @category Reference values
  *
  * @example
- * const result = clo_typical_ensembles("Trousers, long-sleeve shirt"); // returns 0.61
+ * clo_typical_ensembles["Trousers, long-sleeve shirt"]; // 0.61
  */
-export function clo_typical_ensembles(ensembles: ClothingEnsemble): number {
-  switch (ensembles) {
-    case "Walking shorts, short-sleeve shirt":
-      return 0.36;
-    case "Typical summer indoor clothing":
-      return 0.5;
-    case "Knee-length skirt, short-sleeve shirt, sandals, underwear":
-      return 0.54;
-    case "Trousers, short-sleeve shirt, socks, shoes, underwear":
-      return 0.57;
-    case "Trousers, long-sleeve shirt":
-      return 0.61;
-    case "Knee-length skirt, long-sleeve shirt, full slip":
-      return 0.67;
-    case "Sweat pants, long-sleeve sweatshirt":
-      return 0.74;
-    case "Jacket, Trousers, long-sleeve shirt":
-      return 0.96;
-    case "Typical winter indoor clothing":
-      return 1.0;
-    default:
-      throw new Error("No such ensemble");
-  }
-}
+export const clo_typical_ensembles = {
+  "Walking shorts, short-sleeve shirt": 0.36,
+  "Typical summer indoor clothing": 0.5,
+  "Knee-length skirt, short-sleeve shirt, sandals, underwear": 0.54,
+  "Trousers, short-sleeve shirt, socks, shoes, underwear": 0.57,
+  "Trousers, long-sleeve shirt": 0.61,
+  "Knee-length skirt, long-sleeve shirt, full slip": 0.67,
+  "Sweat pants, long-sleeve sweatshirt": 0.74,
+  "Jacket, Trousers, long-sleeve shirt": 0.96,
+  "Typical winter indoor clothing": 1.0,
+} as const;
+
+/** Ensembles listed in {@link clo_typical_ensembles}. */
+export type ClothingEnsemble = keyof typeof clo_typical_ensembles;
 
 /**
  * Clo values of individual clothing elements. To calculate the total clothing insulation you need to add these values together.

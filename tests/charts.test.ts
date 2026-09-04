@@ -11,8 +11,8 @@ import {
 // `psychrometricZone`, so they are not on the package's public surface. These
 // are white-box tests of the solvers themselves, hence the deep import.
 import { bisect, secant } from "../src/utilities/root_finding.js";
-import { pmv_ppd } from "../src/models/index.js";
-import type { PmvPpdStandard } from "../src/models/index.js";
+import { pmv_ppd_ashrae, pmv_ppd_iso } from "../src/models/index.js";
+import type { PmvPpdModel } from "../src/models/index.js";
 
 // The chart module's claim is that it reproduces the geometry the CBE Thermal
 // Comfort Tool draws at comfort.cbe.berkeley.edu. The fixture is that tool's
@@ -28,9 +28,19 @@ import type { PmvPpdStandard } from "../src/models/index.js";
  * pythermalcomfort), the CBE tool's does not, and a ~0.002 K difference in the
  * cooling effect shifts the boundary by about a hundredth of a degree.
  */
-const DB_TOLERANCE: Record<PmvPpdStandard, number> = {
+const DB_TOLERANCE = {
   ISO: 1e-9,
   ASHRAE: 0.02,
+} as const;
+
+/**
+ * The fixture records which standard the deployed tool drew each zone under;
+ * `psychrometricZone` now takes the model function itself, so the recorded
+ * string is resolved here rather than passed through.
+ */
+const MODEL_FOR: Record<keyof typeof DB_TOLERANCE, PmvPpdModel> = {
+  ISO: pmv_ppd_iso,
+  ASHRAE: pmv_ppd_ashrae,
 };
 
 /**
@@ -43,16 +53,19 @@ const HR_TOLERANCE = 1e-5;
 describe("psychrometric comfort zone", () => {
   it("reproduces the boundary the CBE tool draws", () => {
     for (const zone of online.zones) {
-      const standard = zone.standard as PmvPpdStandard;
+      const standard = zone.standard as keyof typeof DB_TOLERANCE;
       const label = `${standard} ±${zone.pmvLimit} met=${zone.met} clo=${zone.clo}`;
       const mine = psychrometricZone({
+        model: MODEL_FOR[standard],
         tr: zone.tr,
         vr: zone.vr,
         met: zone.met,
         clo: zone.clo,
         pmvLimit: zone.pmvLimit,
-        standard,
       });
+      expect(mine.model, `${label} echoes the model it used`).toBe(
+        MODEL_FOR[standard],
+      );
 
       expect(mine.polygon.length, `${label} vertex count`).toBe(
         zone.boundary.length,
@@ -75,7 +88,13 @@ describe("psychrometric comfort zone", () => {
   it("gives the same points as separate edges and as one polygon", () => {
     // Adjacent bands have to share the vertices of an isopleth, which only the
     // separated edges can express; the polygon is the drawing order.
-    const zone = psychrometricZone({ tr: 25, vr: 0.13, met: 1.1, clo: 0.5 });
+    const zone = psychrometricZone({
+      model: pmv_ppd_ashrae,
+      tr: 25,
+      vr: 0.13,
+      met: 1.1,
+      clo: 0.5,
+    });
     expect(zone.polygon).toEqual([
       ...zone.coolEdge,
       ...zone.saturationEdge,
@@ -92,12 +111,12 @@ describe("psychrometric comfort zone", () => {
   it("reports rows it could not solve instead of clamping them", () => {
     // No set of conditions in the bracket reaches PMV = ±20.
     const zone = psychrometricZone({
+      model: pmv_ppd_iso,
       tr: 25,
       vr: 0.13,
       met: 1.1,
       clo: 0.5,
       pmvLimit: 20,
-      standard: "ISO",
     });
     expect(zone.unsolved.length).toBeGreaterThan(0);
     // The value the CBE bisection returns is kept, so its chart can be
@@ -113,18 +132,18 @@ describe("psychrometric comfort zone", () => {
     // it could not land on the boundary.
     const epsilon = 0.001;
     const zone = psychrometricZone({
+      model: pmv_ppd_iso,
       tr: 50,
       vr: 0.13,
       met: 1.1,
       clo: 0.5,
-      standard: "ISO",
       trFollowsDb: true,
       epsilon,
     });
     expect(zone.unsolved).toEqual([]);
     for (const edge of [zone.coolEdge, zone.warmEdge]) {
       for (const { db, rh } of edge) {
-        const { pmv } = pmv_ppd(db, db, 0.13, rh, 1.1, 0.5, 0, "ISO", {
+        const { pmv } = pmv_ppd_iso(db, db, 0.13, rh, 1.1, 0.5, 0, {
           limit_inputs: false,
           round_output: false,
         });
@@ -137,10 +156,10 @@ describe("psychrometric comfort zone", () => {
     // Guards the switch itself: the same call without the flag must not
     // reproduce the operative geometry.
     const conditions = {
+      model: pmv_ppd_iso,
       vr: 0.13,
       met: 1.1,
       clo: 0.5,
-      standard: "ISO",
     } as const;
     const following = psychrometricZone({
       ...conditions,
@@ -162,9 +181,16 @@ describe("psychrometric comfort zone", () => {
     // The search probes -50 °C, where `cooling_effect` gives up and logs.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      psychrometricZone({ tr: 25, vr: 0.6, met: 1.2, clo: 0.5 });
+      psychrometricZone({
+        model: pmv_ppd_ashrae,
+        tr: 25,
+        vr: 0.6,
+        met: 1.2,
+        clo: 0.5,
+      });
       expect(warn).not.toHaveBeenCalled();
       psychrometricZone({
+        model: pmv_ppd_ashrae,
         tr: 25,
         vr: 0.6,
         met: 1.2,
@@ -179,7 +205,13 @@ describe("psychrometric comfort zone", () => {
 });
 
 describe("the CBE tool's two defects", () => {
-  const conditions = { tr: 25, vr: 0.13, met: 1.1, clo: 0.5 } as const;
+  const conditions = {
+    model: pmv_ppd_ashrae,
+    tr: 25,
+    vr: 0.13,
+    met: 1.1,
+    clo: 0.5,
+  } as const;
 
   it("clamps secant candidates to [0, 100], hiding roots below zero", () => {
     const root = (x: number): number => x + 20;
@@ -194,8 +226,8 @@ describe("the CBE tool's two defects", () => {
     // comes out right anyway. That is why defect 1 is invisible on the site.
     const zone = psychrometricZone({
       ...conditions,
+      model: pmv_ppd_iso,
       pmvLimit: 8,
-      standard: "ISO",
     });
     expect(zone.coolEdge[0]!.db).toBeLessThan(0);
     expect(zone.unsolved).toEqual([]);
@@ -208,13 +240,13 @@ describe("the CBE tool's two defects", () => {
   it("solves the saturation line at ±0.5 whatever the limit is", () => {
     const asDrawn = psychrometricZone({
       ...conditions,
+      model: pmv_ppd_iso,
       pmvLimit: 0.2,
-      standard: "ISO",
     });
     const corrected = psychrometricZone({
       ...conditions,
+      model: pmv_ppd_iso,
       pmvLimit: 0.2,
-      standard: "ISO",
       correctKnownDefects: true,
     });
     // The edges are the same — only the top segment moves.
@@ -224,7 +256,7 @@ describe("the CBE tool's two defects", () => {
     );
     // A Category I zone should not reach as far along the saturation line as
     // the ±0.5 zone does, but as drawn it does.
-    const wider = psychrometricZone({ ...conditions, standard: "ISO" });
+    const wider = psychrometricZone({ ...conditions, model: pmv_ppd_iso });
     expect(asDrawn.saturationEdge).toEqual(wider.saturationEdge);
   });
 

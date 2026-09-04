@@ -25,9 +25,11 @@ export type { AdaptiveOffset } from "./offsets.js";
 export {
   enCategoryPmvLimits,
   iso7730PmvLimits,
+  iso7730VapourPressureLimit,
+  iso7730PmvRangeLimit,
   ashrae55PmvLimits,
   ashrae55AdaptiveLimits,
 } from "./limits.js";
-export type { ApplicabilityLimit } from "./limits.js";
+export type { ApplicabilityLimit, LimitRole } from "./limits.js";
 export { standards } from "./standards.js";
 export type { StandardRef } from "./standards.js";

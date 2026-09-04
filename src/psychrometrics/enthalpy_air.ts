@@ -1,7 +1,10 @@
 import { round } from "../utilities/round.js";
 
 /**
- * Calculates air enthalpy
+ * Calculates air enthalpy.
+ *
+ * Named `enthalpy_air` after upstream's `enthalpy_air`
+ * (`pythermalcomfort/utilities.py`); it was `enthalpy` here.
  *
  * @public
  * @category Psychrometrics
@@ -10,7 +13,7 @@ import { round } from "../utilities/round.js";
  * @param hr - humidity ratio [kg water/kg dry air]
  * @returns enthalpy [J/kg dry air]
  */
-export function enthalpy(tdb: number, hr: number): number {
+export function enthalpy_air(tdb: number, hr: number): number {
   const cp_air = 1004;
   const h_fg = 2501000;
   const cp_vapor = 1805.0;

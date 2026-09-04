@@ -35,8 +35,12 @@ export type MeanRadiantStandard = "Mixed Convection" | "ISO";
  *      been validated for globe sensors with a diameter between 0.04 and 0.15 m.
  * @returns mean radiant temperature, [°C]; NaN when the Mixed Convection model
  *      is used outside its validated globe-diameter range of 0.04–0.15 m
+ *
+ * @remarks
+ * Named `mean_radiant_tmp` after upstream's `mean_radiant_tmp`
+ * (`pythermalcomfort/utilities.py`); it was `t_mrt` here.
  */
-export function t_mrt(
+export function mean_radiant_tmp(
   tg: number,
   tdb: number,
   v: number,

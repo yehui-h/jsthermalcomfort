@@ -1,7 +1,7 @@
 import { expect, describe, it } from "vitest";
-import { t_o } from "../../src/psychrometrics/t_o";
+import { operative_tmp } from "../../src/psychrometrics/operative_tmp";
 
-describe("t_o", () => {
+describe("operative_tmp", () => {
   it.each([
     {
       airTemperature: 0,
@@ -83,7 +83,7 @@ describe("t_o", () => {
       standard,
       expected,
     }) => {
-      const result = t_o(
+      const result = operative_tmp(
         airTemperature,
         meanRadiantTemperature,
         airSpeed,
@@ -95,11 +95,13 @@ describe("t_o", () => {
   );
 
   it("throws an error if the airSpeed is negative", () => {
-    expect(() => t_o(0, 0, -1, "ISO")).toThrow("v cannot be negative");
+    expect(() => operative_tmp(0, 0, -1, "ISO")).toThrow(
+      "v cannot be negative",
+    );
   });
 
   it("throws an error if standard is not valid", () => {
-    expect(() => t_o(0, 0, 0, "JORDAN")).toThrow(
+    expect(() => operative_tmp(0, 0, 0, "JORDAN")).toThrow(
       "standard must be one of ISO or ASHRAE",
     );
   });

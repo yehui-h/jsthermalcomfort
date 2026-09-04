@@ -4,7 +4,7 @@ import {
   adaptiveEnOffsets,
 } from "../reference/offsets.js";
 import { standards } from "../reference/standards.js";
-import { t_o } from "../psychrometrics/t_o.js";
+import { operative_tmp } from "../psychrometrics/operative_tmp.js";
 import {
   UNIT_SYSTEMS,
   units_converter,
@@ -99,9 +99,11 @@ export interface AdaptiveEnResult {
  *
  * @example
  * const results = adaptive_en(25, 25, 9, 0.1);
- * console.log(results); // {tmp_cmf: NaN, acceptability_cat_i: true, acceptability_cat_ii: true, ... }
+ * console.log(results); // {tmp_cmf: NaN, acceptability_cat_i: false, acceptability_cat_ii: false, ... }
  * // The adaptive thermal comfort model can only be used
- * // if the running mean temperature is between 10 °C and 30 °C
+ * // if the running mean temperature is between 10 °C and 33.5 °C.
+ * // Every bound is NaN, and no comparison with NaN holds, so every
+ * // acceptability flag is false.
  */
 export function adaptive_en(
   tdb: number,
@@ -136,7 +138,7 @@ export function adaptive_en(
     }));
   }
 
-  const to = t_o(tdb, tr, v, standard);
+  const to = operative_tmp(tdb, tr, v, standard);
 
   const ce = get_ce(v, to);
 

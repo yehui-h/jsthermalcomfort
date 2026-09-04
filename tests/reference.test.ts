@@ -17,6 +17,8 @@ import {
   ashrae55PmvLimits,
   ashraeThermalSensation,
   iso7730PmvLimits,
+  iso7730PmvRangeLimit,
+  iso7730VapourPressureLimit,
   isoThermalSensation,
   scaleFromEdges,
   standards,
@@ -26,6 +28,9 @@ import { quantities } from "../src/io/quantity.js";
 // `@internal`, reached directly: it is the one reader of the cooling-effect
 // table and the only way to check the table describes what the model does.
 import { get_ce } from "../src/models/adaptive_en.js";
+// Also `@internal`: the two ISO rows that are not arguments are enforced here,
+// and `warnings` is the only place their strings surface.
+import { pmv_ppd_with_warnings } from "../src/models/pmv_ppd.js";
 
 // The reference tables are the package's answer to "where do the thresholds
 // live". These tests pin them against pythermalcomfort 4.4.2 so a future edit
@@ -56,24 +61,34 @@ describe("thermal sensation scale", () => {
     );
   });
 
-  it("closes from opposite sides in the two standards", () => {
-    // One table, two closures. At exactly -0.5 the standards disagree — this is
-    // real upstream behaviour (right=False vs the default right=True), not a
-    // transcription slip, so it must survive refactors.
-    expect(isoThermalSensation.labelFor(-0.5)).toBe("Neutral");
-    expect(ashraeThermalSensation.labelFor(-0.5)).toBe("Slightly Cool");
+  it("closes from the same side in both standards", () => {
+    // One table, one closure. A band edge belongs to the band above it under
+    // both standards, so the two pages cannot disagree on a label. See the
+    // provenance note on `ashraeThermalSensation`: upstream's ASHRAE scale is
+    // right-closed only because `right=False` was dropped in an unrelated
+    // refactor, and no standard asks for the asymmetry.
+    for (const scale of [isoThermalSensation, ashraeThermalSensation]) {
+      expect(scale.labelFor(-0.5)).toBe("Neutral");
+      const slightlyCool = scale.intervals.find(
+        (i) => i.label === "Slightly Cool",
+      )!;
+      expect([
+        slightlyCool.lower.inclusive,
+        slightlyCool.upper.inclusive,
+      ]).toEqual([true, false]);
+    }
+  });
 
-    const iso = isoThermalSensation.intervals.find(
-      (i) => i.label === "Slightly Cool",
-    )!;
-    const ashrae = ashraeThermalSensation.intervals.find(
-      (i) => i.label === "Slightly Cool",
-    )!;
-    expect([iso.lower.inclusive, iso.upper.inclusive]).toEqual([true, false]);
-    expect([ashrae.lower.inclusive, ashrae.upper.inclusive]).toEqual([
-      false,
-      true,
-    ]);
+  it("labels the 2.5 edge the way upstream did before it lost right=False", () => {
+    // The exact case pythermalcomfort's `test_thermal_sensation` probes:
+    // tdb 33.47 and 33.46 straddle pmv 2.5. Upstream expected "Hot"/"Warm"
+    // until `07b0746` rewrote it to "Warm"/"Warm" an hour after the flag was
+    // dropped. This package keeps the original reading, so it disagrees with
+    // that test on the first of the two — deliberately, and this pins it.
+    expect(pmv_ppd_ashrae(33.47, 33.47, 0.2, 50, 1, 0.5).pmv).toBe(2.5);
+    expect(pmv_ppd_ashrae(33.46, 33.46, 0.2, 50, 1, 0.5).pmv).toBe(2.49);
+    expect(ashraeThermalSensation.labelFor(2.5)).toBe("Hot");
+    expect(ashraeThermalSensation.labelFor(2.49)).toBe("Warm");
   });
 
   it("leaves NaN and values past the top edge unclassified", () => {
@@ -84,9 +99,10 @@ describe("thermal sensation scale", () => {
       expect(scale.classify(Number.NaN)).toBeUndefined();
       expect(scale.classify(10.5)).toBeUndefined();
     }
-    // The sentinel edge itself: left-closed excludes it, right-closed includes it.
+    // The sentinel top edge itself: left-closed excludes it, so 10 belongs to
+    // no band under either standard.
     expect(isoThermalSensation.labelFor(10)).toBeUndefined();
-    expect(ashraeThermalSensation.labelFor(10)).toBe("Hot");
+    expect(ashraeThermalSensation.labelFor(10)).toBeUndefined();
   });
 
   it("covers the scale without gaps or overlaps", () => {
@@ -305,8 +321,12 @@ describe("applicability limits", () => {
   ];
 
   for (const [name, table] of TABLES) {
+    // `role: "input"` rows only: those are the ones `check_standard_compliance`
+    // range-checks. The derived and output rows are probed separately below,
+    // through the model that owns them.
+    const inputRows = table.filter((limit) => limit.role === "input");
     describe(name, () => {
-      it.each(table.map((limit) => [limit.quantity.key, limit] as const))(
+      it.each(inputRows.map((limit) => [limit.quantity.key, limit] as const))(
         "%s warns just outside its range and not at the edges",
         (_key, limit) => {
           expect(probe(limit, limit.min - PROBE).length).toBeGreaterThan(0);
@@ -318,13 +338,69 @@ describe("applicability limits", () => {
     });
   }
 
-  it("records the ISO met discrepancy rather than silently picking a side", () => {
-    // The code checks < 0; the message says 0.8. Both are in the table, which
-    // is the only place a consumer can see the two disagree.
+  // The two ISO rows that are not arguments. Same promise as the loop above —
+  // the table is the single source — but the reader is `pmv_ppd`, so the proof
+  // is that the row's own `warning` string comes back out of the model.
+  describe("iso7730PmvLimits non-input rows", () => {
+    const warningsFor = (
+      tdb: number,
+      rh: number,
+      clo: number,
+    ): readonly string[] =>
+      pmv_ppd_with_warnings(tdb, tdb, 0.1, rh, 1.2, clo, 0, "ISO").warnings;
+
+    it("p_vap: pa above 2700 Pa is reported and NaNs the result", () => {
+      // tdb 28 / rh 90 puts pa at 3402 Pa with PMV at 1.33, so only the
+      // vapour-pressure row can be what fires.
+      expect(warningsFor(28, 90, 0.5)).toContain(
+        iso7730VapourPressureLimit.warning,
+      );
+      expect(
+        pmv_ppd_with_warnings(28, 28, 0.1, 90, 1.2, 0.5, 0, "ISO").pmv,
+      ).toBeNaN();
+      expect(warningsFor(25, 50, 0.5)).not.toContain(
+        iso7730VapourPressureLimit.warning,
+      );
+    });
+
+    it("pmv: a PMV outside [-2, 2] is reported and NaNs the result", () => {
+      // tdb 10 gives PMV -4.53 with pa at 613 Pa, so only the output row fires.
+      expect(warningsFor(10, 50, 0.5)).toContain(iso7730PmvRangeLimit.warning);
+      expect(
+        pmv_ppd_with_warnings(10, 10, 0.1, 50, 1.2, 0.5, 0, "ISO").pmv,
+      ).toBeNaN();
+      expect(warningsFor(25, 50, 0.5)).not.toContain(
+        iso7730PmvRangeLimit.warning,
+      );
+    });
+
+    it("ASHRAE has neither bound", () => {
+      // Same inputs, ASHRAE: no vapour-pressure row and no output bound, so
+      // the ISO strings must not appear whatever the numbers do.
+      const ashrae = pmv_ppd_with_warnings(
+        28,
+        28,
+        0.1,
+        90,
+        1.2,
+        0.5,
+        0,
+        "ASHRAE",
+      ).warnings;
+      expect(ashrae).not.toContain(iso7730VapourPressureLimit.warning);
+      expect(ashrae).not.toContain(iso7730PmvRangeLimit.warning);
+    });
+  });
+
+  it("checks the ISO met lower bound the warning has always named", () => {
+    // jsthermalcomfort 1.4.0 checked `< 0` while printing "between 0.8 and
+    // 4.0", so this bound never fired. Upstream's pmv_ppd_iso uses (0.8, 4.0).
     const met = iso7730PmvLimits.find((l) => l.quantity === quantities.met)!;
-    expect(met.min).toBe(0);
+    expect(met.min).toBe(0.8);
     expect(met.warning).toContain("between 0.8 and 4.0 met");
-    expect(check_standard_compliance("ISO", { met: 0.5 })).toEqual([]);
+    expect(check_standard_compliance("ISO", { met: 0.5 })).toEqual([
+      met.warning,
+    ]);
   });
 
   it("shares the ASHRAE rows between the PMV and adaptive tables", () => {

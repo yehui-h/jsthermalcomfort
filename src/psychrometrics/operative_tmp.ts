@@ -14,8 +14,12 @@ export type OperativeTemperatureStandard = "ISO" | "ASHRAE";
  * @returns operative temperature [C]
  *
  * @throws {Error} if `v` is negative, or `standard` is not ISO or ASHRAE
+ *
+ * @remarks
+ * Named `operative_tmp` after upstream's `operative_tmp`
+ * (`pythermalcomfort/utilities.py`); it was `t_o` here.
  */
-export function t_o(
+export function operative_tmp(
   tdb: number,
   tr: number,
   v: number,
@@ -27,22 +31,22 @@ export function t_o(
 
   switch (standard) {
     case "ISO":
-      return _t_o_calculation_iso(tdb, tr, v);
+      return _operative_tmp_iso(tdb, tr, v);
     case "ASHRAE":
-      return _t_o_calculation_ashrae(tdb, tr, v);
+      return _operative_tmp_ashrae(tdb, tr, v);
     default:
       // Reachable from untyped JavaScript callers, so the runtime guard stays.
       throw new Error("standard must be one of ISO or ASHRAE");
   }
 }
 
-/** Runs the ISO t_o calculation for scalar values. */
-function _t_o_calculation_iso(tdb: number, tr: number, v: number): number {
+/** Runs the ISO operative-temperature calculation for scalar values. */
+function _operative_tmp_iso(tdb: number, tr: number, v: number): number {
   return (tdb * Math.sqrt(10 * v) + tr) / (1 + Math.sqrt(10 * v));
 }
 
-/** Runs the ASHRAE t_o calculation for scalar values. */
-function _t_o_calculation_ashrae(tdb: number, tr: number, v: number): number {
+/** Runs the ASHRAE operative-temperature calculation for scalar values. */
+function _operative_tmp_ashrae(tdb: number, tr: number, v: number): number {
   let adjustment = v < 0.6 ? 0.6 : 0.7;
   adjustment = v < 0.2 ? 0.5 : adjustment;
   return adjustment * tdb + (1 - adjustment) * tr;

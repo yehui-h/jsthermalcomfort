@@ -1,11 +1,14 @@
 import { p_sat } from "./p_sat.js";
-import { t_dp } from "./t_dp.js";
-import { t_wb } from "./t_wb.js";
-import { enthalpy } from "./enthalpy.js";
+import { dew_point_tmp } from "./dew_point_tmp.js";
+import { wet_bulb_tmp } from "./wet_bulb_tmp.js";
+import { enthalpy_air } from "./enthalpy_air.js";
 
 /**
  * Psychrometric state of moist air derived from dry-bulb temperature and
  * relative humidity.
+ *
+ * The two temperature fields are named after upstream's `PsychrometricValues`
+ * (`pythermalcomfort/classes_return.py`); they were `t_wb` and `t_dp` here.
  *
  * @public
  */
@@ -17,9 +20,9 @@ export interface PsyTaRhReturnType {
   /** humidity ratio, [kg water/kg dry air] */
   hr: number;
   /** wet bulb temperature, [°C] */
-  t_wb: number;
+  wet_bulb_tmp: number;
   /** dew point temperature, [°C] */
-  t_dp: number;
+  dew_point_tmp: number;
   /** enthalpy [J/kg dry air] */
   h: number;
 }
@@ -40,7 +43,9 @@ export interface PsyTaRhReturnType {
  * @example
  * import { psy_ta_rh } from "jsthermalcomfort";
  * const results = psy_ta_rh(21, 56);
- * console.log(results); // { p_sat: 2487.7, p_vap: 1393.112, hr: -2.2041754048718936, t_wb: 15.4, t_dp: 11.9, h: -5575107.96 }
+ * console.log(results);
+ * // { p_sat: 2487.7, p_vap: 1393.112, hr: 0.008670783861904020,
+ * //   wet_bulb_tmp: 15.4, dew_point_tmp: 11.9, h: 43098.3 }
  */
 export function psy_ta_rh(
   tdb: number,
@@ -50,14 +55,14 @@ export function psy_ta_rh(
   const p_saturation = p_sat(tdb);
   const p_vap = (rh / 100) * p_saturation;
   const hr = (0.62198 * p_vap) / (p_atm - p_vap);
-  const tdp = t_dp(tdb, rh);
-  const twb = t_wb(tdb, rh);
-  const h = enthalpy(tdb, hr);
+  const tdp = dew_point_tmp(tdb, rh);
+  const twb = wet_bulb_tmp(tdb, rh);
+  const h = enthalpy_air(tdb, hr);
 
   return {
     p_sat: p_saturation,
-    t_wb: twb,
-    t_dp: tdp,
+    wet_bulb_tmp: twb,
+    dew_point_tmp: tdp,
     p_vap,
     hr,
     h,

@@ -2,7 +2,7 @@ import { adaptiveAshraeOffsets } from "../reference/offsets.js";
 import { ashrae55AdaptiveLimits } from "../reference/limits.js";
 import { standards } from "../reference/standards.js";
 import { quantities } from "../io/quantity.js";
-import { t_o } from "../psychrometrics/t_o.js";
+import { operative_tmp } from "../psychrometrics/operative_tmp.js";
 import {
   UNIT_SYSTEMS,
   check_standard_compliance,
@@ -174,7 +174,7 @@ export function adaptive_ashrae_with_warnings(
       v,
     }));
   }
-  const to = t_o(tdb, tr, v, standard);
+  const to = operative_tmp(tdb, tr, v, standard);
   // calculate cooling effect (ce) of elevated air speed when top > 25 degC.
   const ce = get_ce(v, to);
   // Relation between comfort and outdoor temperature

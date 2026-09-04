@@ -2,7 +2,8 @@ import { describe, expect, it, test } from "vitest";
 import {
   body_surface_area,
   v_relative,
-  clo_dynamic,
+  clo_dynamic_ashrae,
+  clo_dynamic_iso,
   units_converter,
   running_mean_outdoor_temperature,
   f_svv,
@@ -51,75 +52,65 @@ describe("v_relative", () => {
   );
 });
 
-describe("clo_dynamic", () => {
+describe("clo_dynamic_ashrae", () => {
+  // Expected values from pythermalcomfort `clo_dynamic_ashrae`
+  // (pythermalcomfort/utilities.py): clo × (0.6 + 0.4/met) above 1.2 met,
+  // rounded to three decimals; the clothing unchanged at or below it.
   it.each([
-    {
-      clo: 1,
-      met: 1,
-      standard: "ASHRAE",
-      expected: 1,
-      tolerance: 4,
-    },
-    {
-      clo: 1,
-      met: 0.5,
-      standard: "ASHRAE",
-      expected: 1,
-      tolerance: 4,
-    },
-    {
-      clo: 2,
-      met: 0.5,
-      standard: "ASHRAE",
-      expected: 2,
-      tolerance: 4,
-    },
-    {
-      clo: 1,
-      met: 1,
-      standard: undefined,
-      expected: 1,
-      tolerance: 4,
-    },
-    {
-      clo: 1,
-      met: 1.2,
-      standard: undefined,
-      expected: 1,
-      tolerance: 4,
-    },
-    {
-      clo: 1,
-      met: 2.0,
-      standard: undefined,
-      expected: 0.8,
-      tolerance: 4,
-    },
-    {
-      clo: 1.0,
-      met: 1.0,
-      standard: "ISO",
-      expected: 1,
-      tolerance: 4,
-    },
-    {
-      clo: 1.0,
-      met: 2.0,
-      standard: "ISO",
-      expected: 0.8,
-      tolerance: 4,
-    },
+    { clo: 1, met: 0.5, expected: 1 },
+    { clo: 2, met: 0.5, expected: 2 },
+    { clo: 1, met: 1, expected: 1 },
+    { clo: 1, met: 1.2, expected: 1 },
+    { clo: 1, met: 2.0, expected: 0.8 },
+    { clo: 0.5, met: 1.4, expected: 0.443 },
+  ])("returns $expected for clo $clo at met $met", ({ clo, met, expected }) => {
+    expect(
+      Math.abs(clo_dynamic_ashrae(clo, met) - expected),
+    ).toBeLessThanOrEqual(1e-4);
+  });
+
+  it("defaults to the only implemented edition and rejects any other", () => {
+    expect(clo_dynamic_ashrae(1, 2)).toBe(clo_dynamic_ashrae(1, 2, "55-2023"));
+    expect(() => clo_dynamic_ashrae(1.0, 2.0, "55-2017")).toThrow();
+  });
+});
+
+describe("clo_dynamic_iso", () => {
+  // Expected values from pythermalcomfort `clo_dynamic_iso`
+  // (pythermalcomfort/utilities.py), which is the ISO 9920:2007 correction
+  // ISO 7730 Annex C adopts. The rows cover all three insulation regimes the
+  // standard distinguishes: nude, very light clothing (interpolated), and
+  // normal clothing. Verified across a 210-point clo × met × v grid; these
+  // are the anchors kept in the suite.
+  it.each([
+    { clo: 0.0, met: 1.2, v: 0.3, expected: 0.0 }, // nude
+    { clo: 0.3, met: 1.2, v: 0.3, expected: 0.17563593731891736 }, // i_cl <= 0.6
+    { clo: 0.5, met: 1.4, v: 0.2, expected: 0.4052655996721316 }, // i_cl <= 0.6
+    { clo: 0.6, met: 1.2, v: 0.3, expected: 0.5770014237329537 }, // boundary
+    { clo: 1.0, met: 1.2, v: 0.3, expected: 0.9414980689938275 }, // normal
+    { clo: 1.0, met: 2.0, v: 1.0, expected: 0.7516227793147641 }, // normal, walking
+    { clo: 0.5, met: 1.0, v: 0.1, expected: 0.430534917594257 }, // v_walk clipped to 0
   ])(
-    "returns $expected when clo is $clo, met is $met, and the standard is $standard",
-    ({ clo, met, standard, expected, tolerance }) => {
-      const result = clo_dynamic(clo, met, standard);
-      const absTol = Math.pow(10, -tolerance);
-      expect(Math.abs(result - expected)).toBeLessThanOrEqual(absTol);
+    "returns $expected for clo $clo at met $met and v $v",
+    ({ clo, met, v, expected }) => {
+      expect(
+        Math.abs(clo_dynamic_iso(clo, met, v) - expected),
+      ).toBeLessThanOrEqual(1e-12);
     },
   );
 
-  it("throws an error when standard is invalid", () => {
-    expect(() => clo_dynamic(1.0, 1.0, "invalid")).toThrow();
+  it("returns unrounded values, as upstream does", () => {
+    // The ASHRAE branch rounds to three decimals; the ISO one does not, and a
+    // caller comparing the two would otherwise see spurious agreement.
+    const value = clo_dynamic_iso(0.3, 1.2, 0.3);
+    expect(value).not.toBe(Math.round(value * 1000) / 1000);
+  });
+
+  it("defaults i_a to 0.7 and rejects an unimplemented edition", () => {
+    expect(clo_dynamic_iso(0.5, 1.4, 0.2)).toBe(
+      clo_dynamic_iso(0.5, 1.4, 0.2, 0.7),
+    );
+    expect(() => clo_dynamic_iso(0.5, 1.4, 0.2, 0.7, "9920-2009")).toThrow();
   });
 });
 
@@ -310,20 +301,18 @@ describe("clo_typical_ensembles", () => {
     { ensembles: "Trousers, long-sleeve shirt", expected: 0.61 },
     { ensembles: "Sweat pants, long-sleeve sweatshirt", expected: 0.74 },
     { ensembles: "Typical winter indoor clothing", expected: 1.0 },
-  ])(
-    "returns $expected when ensemble is $ensembles",
-    ({ ensembles, expected }) => {
-      const result = clo_typical_ensembles(ensembles);
-      expect(Math.abs(result - expected)).toBeLessThanOrEqual(
-        DEFAULT_TOLERANCE,
-      );
-    },
-  );
+  ])("reads $expected for $ensembles", ({ ensembles, expected }) => {
+    const result = clo_typical_ensembles[ensembles];
+    expect(Math.abs(result - expected)).toBeLessThanOrEqual(DEFAULT_TOLERANCE);
+  });
 
-  it("throws an error if the ensemble is not valid", () => {
-    expect(() =>
-      clo_typical_ensembles("Sweet pants, short-sleeve shirt"),
-    ).toThrow();
+  it("carries the nine ensembles upstream lists, and nothing else", () => {
+    // A table, not a function: an unknown key reads undefined rather than
+    // throwing, so what pins the surface is the key set itself.
+    expect(Object.keys(clo_typical_ensembles)).toHaveLength(9);
+    expect(clo_typical_ensembles["Sweet pants, short-sleeve shirt"]).toBe(
+      undefined,
+    );
   });
 });
 

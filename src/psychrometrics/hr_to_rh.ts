@@ -6,6 +6,11 @@ import { rh_from_vapour_pressure } from "./rh_from_vapour_pressure.js";
  * Inverse of the `hr` that {@link psy_ta_rh} returns, through the vapour
  * pressure `p_vap = hr · p_atm / (0.62198 + hr)`. Clamped to `[0, 100]`.
  *
+ * Named `hr_to_rh` after upstream's `hr_to_rh`
+ * (`pythermalcomfort/utilities.py`); it was `rh_from_humidity_ratio` here.
+ * The clamp is this package's own — upstream returns the raw ratio, which can
+ * exceed 100 % for a humidity ratio above saturation.
+ *
  * @public
  * @category Psychrometrics
  *
@@ -14,10 +19,6 @@ import { rh_from_vapour_pressure } from "./rh_from_vapour_pressure.js";
  * @param p_atm - atmospheric pressure, [Pa]
  * @returns relative humidity, [%]
  */
-export function rh_from_humidity_ratio(
-  hr: number,
-  tdb: number,
-  p_atm = 101325,
-): number {
+export function hr_to_rh(hr: number, tdb: number, p_atm = 101325): number {
   return rh_from_vapour_pressure((hr * p_atm) / (0.62198 + hr), tdb);
 }

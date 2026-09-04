@@ -37,10 +37,12 @@ npm install jsthermalcomfort
 To get started with `jsthermalcomfort`, you can install it via npm and run a simple calculation:
 
 ```javascript
-import { pmv_ppd } from "jsthermalcomfort";
+import { pmv_ppd_iso } from "jsthermalcomfort";
 
-// Calculate PMV and PPD
-const results = pmv_ppd(25, 25, 0.1, 50, 1.2, 0.5);
+// Calculate PMV and PPD. Pick the model of the standard you are working to:
+// pmv_ppd_iso is Fanger unmodified, pmv_ppd_ashrae adds the
+// elevated-air-speed cooling effect.
+const results = pmv_ppd_iso(25, 25, 0.1, 50, 1.2, 0.5);
 console.log(`PMV: ${results.pmv}, PPD: ${results.ppd}%`);
 ```
 
