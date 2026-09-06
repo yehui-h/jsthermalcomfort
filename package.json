@@ -4,7 +4,8 @@
   "description": "A JavaScript package to calculate thermophysiological, thermal comfort, thermal stress indices",
   "type": "module",
   "files": [
-    "lib"
+    "lib",
+    "src"
   ],
   "main": "./lib/esm/index.js",
   "types": "./lib/esm/types/index.d.ts",
@@ -13,8 +14,7 @@
     "typecheck": "tsc",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "build": "npm run clean && npm run build:esm",
-    "build:esm": "tsc -p ./configs/tsconfig.esm.json",
+    "build": "npm run clean && tsc -p ./tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "docs": "typedoc",

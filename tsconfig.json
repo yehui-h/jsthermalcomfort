@@ -1,6 +1,21 @@
 {
-  "extends": "./configs/tsconfig.base.json",
+  // The authoritative type-check pass: `src` and `tests`, no emit.
+  // `tsconfig.build.json` extends this and only turns emit on, so the build
+  // can never be checked under weaker settings than `npm run typecheck`.
   "compilerOptions": {
+    "strict": true,
+    "erasableSyntaxOnly": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    // Load-bearing, not boilerplate: `tests/**` pulls in vitest's declarations,
+    // and `lib` below carries no DOM or Node globals, so without this the
+    // check fails on `AbortSignal`, `setTimeout` and `setInterval` inside
+    // @vitest/runner and @vitest/utils.
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "lib": ["ES2022"],
     "verbatimModuleSyntax": true,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
