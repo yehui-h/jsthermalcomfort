@@ -46,9 +46,12 @@ export interface Quantity {
  * {@link quantityFor} and the applicability tables in `src/reference/limits.ts`
  * match on it, and a wrong one unhooks a quantity silently — no warning fires
  * and no unit converts. The self-referential constraint turns that into a
- * compile error. (It also widens `siUnit` and friends from their literals back
- * to `string`; nothing reads those as types, and a legible error is worth
- * more.)
+ * compile error.
+ *
+ * Deriving `key` from the record key instead would delete the repetition, but
+ * it needs a cast and it changes the emitted declarations — the entries become
+ * an intersection rather than one flat object — so the duplication stays and
+ * the constraint keeps it honest.
  */
 const table = <
   const T extends { readonly [K in keyof T]: Quantity & { readonly key: K } },

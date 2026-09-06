@@ -46,3 +46,6 @@ jobs:
       # `require("jsthermalcomfort")` keeps working across the whole `engines`
       # range via Node's require(esm), not via a CommonJS build.
       - run: npm run check:exports
+      # `deploy-docs.yml` triggers on this workflow succeeding, so the docs must
+      # be proven to build here rather than in a workflow of their own.
+      - run: npm run docs

@@ -51,7 +51,7 @@ To set up jsthermalcomfort for local development:
 
    Now you can make your changes locally.
 
-4. When you’re done making changes run all tests using Jest:
+4. When you’re done making changes run all tests using Vitest:
    - Install dependencies
 
    ```bash
@@ -116,8 +116,8 @@ npm run docs
 ```
 
 The output goes to `docs/`, which is git-ignored and rebuilt on every push by
-the `Docs can build` workflow; the `Deploy Documentation` workflow publishes it
-to GitHub Pages. Never commit anything under `docs/`.
+the `CI` workflow; the `Deploy Documentation` workflow publishes it to GitHub
+Pages when `CI` succeeds. Never commit anything under `docs/`.
 
 To preview locally, open `docs/index.html` in a browser after running the
 command above.

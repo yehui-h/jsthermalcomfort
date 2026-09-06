@@ -1,4 +1,5 @@
 import {
+  ComplianceCheck,
   UNIT_SYSTEMS,
   check_standard_compliance,
   round,
@@ -13,8 +14,15 @@ import {
 } from "../reference/limits.js";
 import { cooling_effect } from "./cooling_effect.js";
 
-/** Comfort standard selecting the PMV formulation. */
-export type PmvPpdStandard = "ISO" | "ASHRAE";
+/**
+ * Comfort standard selecting the PMV formulation.
+ *
+ * An alias of {@link ComplianceCheck} rather than a second `"ISO" | "ASHRAE"`
+ * union: the value this selects is passed straight to
+ * `check_standard_compliance`, so the two sets are the same set, and spelling
+ * it twice is how they would come to disagree.
+ */
+export type PmvPpdStandard = ComplianceCheck;
 
 /**
  * Optional overrides accepted by `pmv_ppd` and by the two models that
@@ -103,7 +111,7 @@ const PMV_PPD_SCHEMA = {
   met: { type: "number" },
   clo: { type: "number" },
   wme: { type: "number" },
-  standard: { enum: ["ISO", "ASHRAE"] },
+  standard: { enum: Object.values(ComplianceCheck) },
   units: { enum: UNIT_SYSTEMS, required: false },
   limit_inputs: { type: "boolean", required: false },
   airspeed_control: { type: "boolean", required: false },

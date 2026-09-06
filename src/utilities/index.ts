@@ -63,7 +63,3 @@ export default {
   clo_individual_garments,
   check_standard_compliance,
 };
-
-/**
- * @public
- */

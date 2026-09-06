@@ -2,7 +2,7 @@ name: Deploy Documentation
 
 on:
   workflow_run:
-    workflows: ["Docs can build"]
+    workflows: ["CI"]
     types:
       - completed
   workflow_dispatch:

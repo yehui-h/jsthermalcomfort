@@ -5,3 +5,6 @@ node_modules
 docs/**
 # build output
 lib/**
+# Claude Code local state, including git worktrees with their own build output —
+# `lib/**` above is anchored to the repo root and does not reach into them
+.claude
