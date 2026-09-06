@@ -92,10 +92,3 @@ lerna-debug.log
 # System Files
 .DS_Store
 Thumbs.db
-# build-time node10 resolution stubs (see scripts/build-subpath-stubs.mjs)
-/models
-/psychrometrics
-/utilities
-/reference
-/io
-/charts

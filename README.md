@@ -109,9 +109,11 @@ agree; tests enforce that. See
 [Examples](https://federicotartarini.github.io/jsthermalcomfort/documents/Examples.html).
 
 Subpath entry points: `jsthermalcomfort/models`, `/psychrometrics`,
-`/utilities`, `/reference`, `/io`, `/charts`. The package ships ESM, CommonJS
-and type declarations, and resolves under node10, node16 and bundler resolution
-alike.
+`/utilities`, `/reference`, `/io`, `/charts`. The package ships ESM and type
+declarations, and resolves under node16 and bundler resolution. CommonJS callers
+are supported too: `require("jsthermalcomfort")` works across the whole
+supported Node range (see `engines`) through Node's `require(esm)`, which is why
+there is no separate CommonJS build.
 
 # Contributing
 

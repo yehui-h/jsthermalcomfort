@@ -5,10 +5,3 @@ node_modules
 docs/**
 # build output
 lib/**
-# build-time node10 resolution stubs
-/models
-/psychrometrics
-/utilities
-/reference
-/io
-/charts

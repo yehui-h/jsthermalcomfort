@@ -4,15 +4,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [
-      "lib/**",
-      "docs/**",
-      "coverage/**",
-      // build-time node10 resolution stubs
-      "models/**",
-      "psychrometrics/**",
-      "utilities/**",
-    ],
+    ignores: ["lib/**", "docs/**", "coverage/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

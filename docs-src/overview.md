@@ -15,7 +15,7 @@ If you use `jsthermalcomfort` in your research, please cite the original `pyther
 - **One input and output shape:** `jsthermalcomfort/io` reduces every model to the same result type without changing what the models themselves return.
 - **Chart geometry included:** the psychrometric comfort zone and the adaptive bands are computed, not hard-coded, reproducing what the CBE Thermal Comfort Tool draws.
 - **Fast:** Optimized for performance, allowing for large-scale simulations in the browser or Node.js.
-- **Cross-platform:** ESM and CommonJS, with TypeScript declarations, in any modern browser or Node.js. No runtime dependencies.
+- **Cross-platform:** ESM with TypeScript declarations, in any modern browser or Node.js. CommonJS callers `require()` it through Node's `require(esm)`, supported across the whole `engines` range. No runtime dependencies.
 
 ## Why Use jsthermalcomfort?
 

@@ -39,7 +39,10 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
-      # Proves the ESM/CJS/types wiring still resolves for every consumer
-      # shape (node10, node16 CJS, node16 ESM, bundler). This is the guard
-      # against silently re-breaking `require("jsthermalcomfort")`.
+      # Proves the ESM/types wiring still resolves for node16 ESM and bundler
+      # consumers. `publint` is the half that checks `main`/`types` actually
+      # point at files that exist — `attw --profile esm-only` skips the node10
+      # and node16-CJS resolutions, which are the only ones that read them.
+      # `require("jsthermalcomfort")` keeps working across the whole `engines`
+      # range via Node's require(esm), not via a CommonJS build.
       - run: npm run check:exports

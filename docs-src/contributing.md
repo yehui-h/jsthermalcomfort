@@ -246,8 +246,7 @@ page shows only a bare signature, the comment block is not attached to the
 declaration — see the rule at the top of this section.
 
 New entry points (not new models) need adding to `entryPoints` in
-`typedoc.json`, to `exports` and `files` in `package.json`, and to `SUBPATHS`
-in `scripts/build-subpath-stubs.mjs`.
+`typedoc.json` and to `exports` in `package.json`.
 
 ## How to Update the Documentation Site
 
@@ -277,8 +276,9 @@ rather than trusting the exit code, and open the affected pages.
 - **Lint**: `npm run lint`
 - **Type Check**: `npm run typecheck`
 - **Build**: `npm run build`
-- **Export Wiring**: `npm run check:exports` (verifies the ESM/CJS/types entry
-  points still resolve for node10, node16 and bundler consumers)
+- **Export Wiring**: `npm run check:exports` (verifies the ESM/types entry
+  points still resolve for node16 and bundler consumers, and that `main` and
+  `types` point at files that exist)
 - **Docs**: `npm run docs`
 
 CI runs every one of these. Please ensure they all pass before submitting a

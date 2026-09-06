@@ -4,34 +4,25 @@
   "description": "A JavaScript package to calculate thermophysiological, thermal comfort, thermal stress indices",
   "type": "module",
   "files": [
-    "lib",
-    "models",
-    "psychrometrics",
-    "utilities",
-    "reference",
-    "io",
-    "charts"
+    "lib"
   ],
-  "main": "./lib/cjs/index.js",
-  "types": "./lib/cjs/types/index.d.ts",
+  "main": "./lib/esm/index.js",
+  "types": "./lib/esm/types/index.d.ts",
   "scripts": {
-    "clean": "rm -rf ./lib ./models ./psychrometrics ./utilities ./reference ./io ./charts",
+    "clean": "rm -rf ./lib",
     "typecheck": "tsc",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:cjs-marker && npm run build:stubs",
+    "build": "npm run clean && npm run build:esm",
     "build:esm": "tsc -p ./configs/tsconfig.esm.json",
-    "build:cjs": "tsc -p ./configs/tsconfig.cjs.json",
-    "build:cjs-marker": "node -e \"require('fs').writeFileSync('lib/cjs/package.json', JSON.stringify({type:'commonjs'}) + '\\n')\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "docs": "typedoc",
-    "check:exports": "publint && attw --pack .",
+    "check:exports": "publint && attw --pack . --profile esm-only",
     "format": "prettier . --write",
     "check:format": "prettier . --check",
     "prepack": "npm run build",
-    "prepare": "git config core.hooksPath .githooks || true",
-    "build:stubs": "node scripts/build-subpath-stubs.mjs"
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "release": {
     "branches": [
@@ -75,74 +66,32 @@
   "module": "./lib/esm/index.js",
   "exports": {
     ".": {
-      "import": {
-        "types": "./lib/esm/types/index.d.ts",
-        "default": "./lib/esm/index.js"
-      },
-      "require": {
-        "types": "./lib/cjs/types/index.d.ts",
-        "default": "./lib/cjs/index.js"
-      }
+      "types": "./lib/esm/types/index.d.ts",
+      "default": "./lib/esm/index.js"
     },
     "./models": {
-      "import": {
-        "types": "./lib/esm/types/models/index.d.ts",
-        "default": "./lib/esm/models/index.js"
-      },
-      "require": {
-        "types": "./lib/cjs/types/models/index.d.ts",
-        "default": "./lib/cjs/models/index.js"
-      }
+      "types": "./lib/esm/types/models/index.d.ts",
+      "default": "./lib/esm/models/index.js"
     },
     "./psychrometrics": {
-      "import": {
-        "types": "./lib/esm/types/psychrometrics/index.d.ts",
-        "default": "./lib/esm/psychrometrics/index.js"
-      },
-      "require": {
-        "types": "./lib/cjs/types/psychrometrics/index.d.ts",
-        "default": "./lib/cjs/psychrometrics/index.js"
-      }
+      "types": "./lib/esm/types/psychrometrics/index.d.ts",
+      "default": "./lib/esm/psychrometrics/index.js"
     },
     "./utilities": {
-      "import": {
-        "types": "./lib/esm/types/utilities/index.d.ts",
-        "default": "./lib/esm/utilities/index.js"
-      },
-      "require": {
-        "types": "./lib/cjs/types/utilities/index.d.ts",
-        "default": "./lib/cjs/utilities/index.js"
-      }
+      "types": "./lib/esm/types/utilities/index.d.ts",
+      "default": "./lib/esm/utilities/index.js"
     },
     "./reference": {
-      "import": {
-        "types": "./lib/esm/types/reference/index.d.ts",
-        "default": "./lib/esm/reference/index.js"
-      },
-      "require": {
-        "types": "./lib/cjs/types/reference/index.d.ts",
-        "default": "./lib/cjs/reference/index.js"
-      }
+      "types": "./lib/esm/types/reference/index.d.ts",
+      "default": "./lib/esm/reference/index.js"
     },
     "./io": {
-      "import": {
-        "types": "./lib/esm/types/io/index.d.ts",
-        "default": "./lib/esm/io/index.js"
-      },
-      "require": {
-        "types": "./lib/cjs/types/io/index.d.ts",
-        "default": "./lib/cjs/io/index.js"
-      }
+      "types": "./lib/esm/types/io/index.d.ts",
+      "default": "./lib/esm/io/index.js"
     },
     "./charts": {
-      "import": {
-        "types": "./lib/esm/types/charts/index.d.ts",
-        "default": "./lib/esm/charts/index.js"
-      },
-      "require": {
-        "types": "./lib/cjs/types/charts/index.d.ts",
-        "default": "./lib/cjs/charts/index.js"
-      }
+      "types": "./lib/esm/types/charts/index.d.ts",
+      "default": "./lib/esm/charts/index.js"
     },
     "./lib/*": "./lib/*",
     "./package.json": "./package.json"
