@@ -71,7 +71,7 @@ import { pmv_ppd_ashrae, pmv_ppd_iso } from "jsthermalcomfort";
 
 pmv_ppd_iso.tsv.labelFor(-0.8); // "Slightly Cool"
 pmv_ppd_iso.tsv.classify(-0.8).upper; // { value: -0.5, inclusive: false }
-pmv_ppd_ashrae.COMPLIANCE_LIMIT; // 0.5
+pmv_ppd_ashrae.compliance.contains(0.4); // true — the open interval (-0.5, 0.5)
 ```
 
 Both standards share one seven-point table but close it from opposite sides,
@@ -96,7 +96,7 @@ the numbers are identical to a direct call.
 ```js
 import { io } from "jsthermalcomfort";
 
-const result = io.pmvPpdIso({
+const out = io.pmvPpdIso({
   tdb: 25,
   tr: 25,
   vr: 0.1,
@@ -104,10 +104,10 @@ const result = io.pmvPpdIso({
   met: 1.2,
   clo: 0.5,
 });
-result.pmv; // 0.08
-result.tsv; // "Neutral"
+out.result; // { pmv: 0.08, ppd: 5.1 } — exactly what pmv_ppd_iso returns
+out.tsv; // "Neutral"
 
-for (const measure of result.toMeasures()) {
+for (const measure of out.toMeasures()) {
   measure.quantity.label; // "Predicted Mean Vote"
   measure.value; // 0.08
   measure.unit; // ""  — "%" for PPD, "°C"/"°F" for temperatures
@@ -139,7 +139,7 @@ When a result is `NaN`, the warnings say why:
 ```js
 const bad = io.adaptiveAshrae({ tdb: 25, tr: 25, t_running_mean: 5, v: 0.1 });
 
-bad.tmp_cmf; // NaN
+bad.result.tmp_cmf; // NaN
 bad.warnings[0];
 // "ASHRAE running mean outdoor temperature applicability limits between 10.0 and 33.5 °C"
 ```

@@ -43,13 +43,3 @@ export {
   set_tmp,
   two_nodes_gagge,
 };
-
-export default {
-  adaptive_ashrae,
-  adaptive_en,
-  cooling_effect,
-  pmv_ppd_ashrae,
-  pmv_ppd_iso,
-  set_tmp,
-  two_nodes_gagge,
-};

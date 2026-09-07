@@ -177,8 +177,10 @@ describe("psychrometric comfort zone", () => {
     expect(matched.coolEdge[0]!.db).toBeCloseTo(following.coolEdge[0]!.db, 9);
   });
 
-  it("stays quiet unless asked not to", () => {
-    // The search probes -50 °C, where `cooling_effect` gives up and logs.
+  it("writes nothing to the console", () => {
+    // The search probes -50 °C, where `cooling_effect` finds no root. It used
+    // to log a line per probe and this function used to patch `console.warn`
+    // around the trace to hide them; now neither happens.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       psychrometricZone({
@@ -189,15 +191,6 @@ describe("psychrometric comfort zone", () => {
         clo: 0.5,
       });
       expect(warn).not.toHaveBeenCalled();
-      psychrometricZone({
-        model: pmv_ppd_ashrae,
-        tr: 25,
-        vr: 0.6,
-        met: 1.2,
-        clo: 0.5,
-        suppressModelWarnings: false,
-      });
-      expect(warn).toHaveBeenCalled();
     } finally {
       warn.mockRestore();
     }

@@ -41,10 +41,11 @@ Example:
 
 ```javascript
 import {
-  models,
-  utilities,
-  psychrometrics,
+  pmv_ppd_iso,
+  v_relative,
 } from "https://cdn.jsdelivr.net/npm/jsthermalcomfort/lib/esm/index.js";
+
+pmv_ppd_iso(25, 25, v_relative(0.1, 1.2), 50, 1.2, 0.5); // { pmv: -0.09, ppd: 5.2 }
 ```
 
 You can also import it in the website directly, and caution that you need to mark the script as module:
@@ -52,9 +53,8 @@ You can also import it in the website directly, and caution that you need to mar
 ```html
 <script type="module">
   import {
-    models,
-    utilities,
-    psychrometrics,
+    pmv_ppd_iso,
+    v_relative,
   } from "https://cdn.jsdelivr.net/npm/jsthermalcomfort/lib/esm/index.js";
 </script>
 ```
@@ -66,7 +66,7 @@ The **models** take and return plain numbers, exactly as they always have:
 ```js
 import { pmv_ppd_iso, adaptive_ashrae } from "jsthermalcomfort";
 
-pmv_ppd_iso(25, 25, 0.1, 50, 1.2, 0.5); // { pmv: 0.08, ppd: 5.1 }
+pmv_ppd_iso(25, 25, 0.1, 50, 1.2, 0.5); // { pmv: -0.09, ppd: 5.2 }
 adaptive_ashrae(25, 25, 20, 0.1); // { tmp_cmf: 24, ... }
 ```
 

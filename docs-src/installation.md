@@ -10,10 +10,11 @@ Example:
 
 ```javascript
 import {
-  models,
-  utilities,
-  psychrometrics,
+  pmv_ppd_iso,
+  v_relative,
 } from "https://cdn.jsdelivr.net/npm/jsthermalcomfort/lib/esm/index.js";
+
+pmv_ppd_iso(25, 25, v_relative(0.1, 1.2), 50, 1.2, 0.5); // { pmv: -0.09, ppd: 5.2 }
 ```
 
 You can also import it in the website directly, and caution that you need to mark the script as module:
@@ -21,9 +22,8 @@ You can also import it in the website directly, and caution that you need to mar
 ```html
 <script type="module">
   import {
-    models,
-    utilities,
-    psychrometrics,
+    pmv_ppd_iso,
+    v_relative,
   } from "https://cdn.jsdelivr.net/npm/jsthermalcomfort/lib/esm/index.js";
 </script>
 ```

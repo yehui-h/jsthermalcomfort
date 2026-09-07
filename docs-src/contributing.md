@@ -216,8 +216,9 @@ export function my_new_model(tdb: number, rh: number): MyNewModelResult {
 
 ### 3. Register the Model
 
-`src/models/index.ts` has three places to update — the type re-export, the
-named export, and the default-export object:
+`src/models/index.ts` has two places to update — the type re-export and the
+named export. There is no default-export object to maintain: this branch removed
+them, and named imports are the only surface.
 
 ```ts
 import { my_new_model } from "./my_new_model.js";
@@ -228,16 +229,11 @@ export {
   // ... existing models
   my_new_model,
 };
-
-export default {
-  // ... existing models
-  my_new_model,
-};
 ```
 
-`tests/index.test.js` asserts the exact set of exported model names, so add the
-new name there too — that test is what catches an export accidentally being
-dropped.
+`tests/index.test.js` asserts the exact set of names each entry point exports,
+so add the new name there too — that test is what catches an export
+accidentally being dropped.
 
 ### 4. Verify It Appears in the Docs
 

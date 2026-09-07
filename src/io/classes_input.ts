@@ -1,5 +1,4 @@
-import { UNIT_SYSTEMS, validateInputs } from "../utilities/utilities.js";
-import type { UnitSystem, ValidationSchema } from "../utilities/utilities.js";
+import type { UnitSystem } from "../utilities/utilities.js";
 
 /**
  * Options every model in this package accepts.
@@ -15,18 +14,19 @@ export interface BaseInputsInit {
   round_output?: boolean | undefined;
 }
 
-const BASE_SCHEMA = {
-  units: { enum: UNIT_SYSTEMS },
-  limit_inputs: { type: "boolean" },
-  round_output: { type: "boolean" },
-} satisfies ValidationSchema;
-
 /**
  * The options shared by every model: unit system and the two output switches.
  *
  * Mirrors `BaseInputs` in pythermalcomfort's `classes_input.py` — it resolves
  * the defaults and normalises `units` to upper case, so a subclass and the
- * model behind it always see the same validated values.
+ * model behind it always see the same values. The upper-casing matters beyond
+ * the model call: `toMeasures()` resolves the unit of each value from
+ * `inputs.units`, and a lowercase `"ip"` would label °F values as °C.
+ *
+ * These classes do not validate. Every model validates its own arguments —
+ * type, unit system, the switches — and every `io` factory runs a model
+ * immediately, so a bad value throws the model's error from the same call.
+ * Validating here as well was a second copy of each model's schema.
  *
  * Only the genuinely shared fields live here. Each subclass declares its own
  * measured inputs, which keeps it exactly as wide as the model it feeds.
@@ -41,13 +41,9 @@ export class BaseInputs {
   readonly round_output: boolean;
 
   constructor(init: BaseInputsInit = {}) {
-    const units = (init.units ?? "SI").toUpperCase();
-    const limit_inputs = init.limit_inputs ?? true;
-    const round_output = init.round_output ?? true;
-    validateInputs({ units, limit_inputs, round_output }, BASE_SCHEMA);
-    this.units = units as UnitSystem;
-    this.limit_inputs = limit_inputs;
-    this.round_output = round_output;
+    this.units = (init.units ?? "SI").toUpperCase() as UnitSystem;
+    this.limit_inputs = init.limit_inputs ?? true;
+    this.round_output = init.round_output ?? true;
   }
 }
 
@@ -87,26 +83,9 @@ export interface AdaptiveInit extends BaseInputsInit {
   v: number;
 }
 
-const PMV_SCHEMA = {
-  tdb: { type: "number" },
-  tr: { type: "number" },
-  vr: { type: "number" },
-  rh: { type: "number" },
-  met: { type: "number" },
-  clo: { type: "number" },
-  wme: { type: "number" },
-} satisfies ValidationSchema;
-
-const ADAPTIVE_SCHEMA = {
-  tdb: { type: "number" },
-  tr: { type: "number" },
-  t_running_mean: { type: "number" },
-  v: { type: "number" },
-} satisfies ValidationSchema;
-
 /**
- * Validated inputs for a PMV/PPD model. Used as-is for ISO 7730; ASHRAE 55
- * extends it with `airspeed_control`.
+ * Inputs for a PMV/PPD model, defaults resolved. Used as-is for ISO 7730;
+ * ASHRAE 55 extends it with `airspeed_control`.
  *
  * @public
  */
@@ -121,26 +100,19 @@ export class PmvPpdInputs extends BaseInputs {
 
   constructor(init: PmvPpdInit) {
     super(init);
-    // The measured fields only: `units` and the two switches were validated by
-    // `super`. Listing them rather than spreading `init` is what lets
-    // `validateInputs` require a rule for each — a new field with no rule stops
-    // compiling instead of going unchecked.
-    const { tdb, tr, vr, rh, met, clo } = init;
-    const wme = init.wme ?? 0;
-    validateInputs({ tdb, tr, vr, rh, met, clo, wme }, PMV_SCHEMA);
-    this.tdb = tdb;
-    this.tr = tr;
-    this.vr = vr;
-    this.rh = rh;
-    this.met = met;
-    this.clo = clo;
-    this.wme = wme;
+    this.tdb = init.tdb;
+    this.tr = init.tr;
+    this.vr = init.vr;
+    this.rh = init.rh;
+    this.met = init.met;
+    this.clo = init.clo;
+    this.wme = init.wme ?? 0;
   }
 }
 
 /**
- * Validated inputs for the ASHRAE 55 PMV/PPD model. Adds `airspeed_control`,
- * which only that standard consults.
+ * Inputs for the ASHRAE 55 PMV/PPD model. Adds `airspeed_control`, which only
+ * that standard consults.
  *
  * @public
  */
@@ -149,17 +121,12 @@ export class PmvPpdAshraeInputs extends PmvPpdInputs {
 
   constructor(init: PmvPpdAshraeInit) {
     super(init);
-    const airspeed_control = init.airspeed_control ?? true;
-    validateInputs(
-      { airspeed_control },
-      { airspeed_control: { type: "boolean" } },
-    );
-    this.airspeed_control = airspeed_control;
+    this.airspeed_control = init.airspeed_control ?? true;
   }
 }
 
 /**
- * Validated inputs for the adaptive models.
+ * Inputs for the adaptive models, defaults resolved.
  *
  * ASHRAE 55 and EN 16798-1 take the same four measurements and the same
  * options, so one class serves both — pythermalcomfort splits them into
@@ -176,12 +143,9 @@ export class AdaptiveInputs extends BaseInputs {
 
   constructor(init: AdaptiveInit) {
     super(init);
-    // Measured fields only; `super` validated the options. See PmvPpdInputs.
-    const { tdb, tr, t_running_mean, v } = init;
-    validateInputs({ tdb, tr, t_running_mean, v }, ADAPTIVE_SCHEMA);
-    this.tdb = tdb;
-    this.tr = tr;
-    this.t_running_mean = t_running_mean;
-    this.v = v;
+    this.tdb = init.tdb;
+    this.tr = init.tr;
+    this.t_running_mean = init.t_running_mean;
+    this.v = init.v;
   }
 }

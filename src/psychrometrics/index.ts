@@ -34,19 +34,3 @@ export {
   rh_from_vapour_pressure,
   rh_from_wet_bulb,
 };
-
-export default {
-  antoine,
-  p_sat,
-  p_sat_torr,
-  psy_ta_rh,
-  operative_tmp,
-  enthalpy_air,
-  wet_bulb_tmp,
-  dew_point_tmp,
-  mean_radiant_tmp,
-  rh_from_dew_point,
-  hr_to_rh,
-  rh_from_vapour_pressure,
-  rh_from_wet_bulb,
-};

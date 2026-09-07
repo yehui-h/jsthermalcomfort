@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import baseline from "./fixtures/baseline-1.4.0.json" with { type: "json" };
 import * as lib from "../src/index.js";
+import { adaptive_ashrae } from "../src/models/adaptive_ashrae.js";
 import { antoine } from "../src/psychrometrics/antoine.js";
 
 // Proves the TypeScript rewrite returns byte-identical results to the published
@@ -239,6 +240,36 @@ const divergences: readonly {
     // this shape is superseded; the ASHRAE half still matches exactly.
     reason: "clo_dynamic's ISO branch replaced by clo_dynamic_iso",
     covers: (model) => model === "clo_dynamic.iso",
+  },
+  {
+    // Upstream `c3c110e` (PR #188, issue #179): `round_output` now rounds the
+    // returned temperatures — the four bounds included, after any IP
+    // conversion — and the acceptability flags are judged on the unrounded
+    // band. 1.4.0 rounded `t_cmf` first and derived the bounds from it, so a
+    // flag could flip with `round_output` at a rounded edge, the bounds
+    // carried float noise (`25.599999999999998`), and IP callers got the °C
+    // rounding converted. Every rounded row with a finite result is under the
+    // new rule; NaN rows and `round_output: false` rows are untouched and still
+    // replay byte-for-byte. Finiteness is decided on the unrounded path so the
+    // predicate does not depend on the behaviour it exempts.
+    reason:
+      "adaptive_ashrae rounds after the bounds and the unit conversion (upstream #188)",
+    covers: (model, i) => {
+      if (model === "adaptive_ashrae")
+        return Number.isFinite(
+          adaptive_ashrae(i.tdb, i.tr, i.t_running_mean, i.v, "SI", true, false)
+            .tmp_cmf,
+        );
+      if (model === "adaptive_ashrae.flags")
+        return (
+          i.round_output &&
+          Number.isFinite(
+            adaptive_ashrae(25, 25, i.trm, 0.7, i.units, i.limit_inputs, false)
+              .tmp_cmf,
+          )
+        );
+      return false;
+    },
   },
 ];
 

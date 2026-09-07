@@ -62,7 +62,11 @@ export interface CoolingEffectResult {
  * @param clo - clothing insulation, [clo]
  * @param wme - external work
  * @param units - select the SI (International System of Units) or the IP (Imperial Units) system.
- * @returns Cooling Effect, default in [°C] in [°F] if `units` = 'IP'
+ * @returns Cooling Effect, default in [°C] in [°F] if `units` = 'IP'.
+ * `{ ce: 0 }` when the SET equation has no root in the bracket `[0, 40] °C`,
+ * which happens far outside the applicability limits (the `charts` solver
+ * probes down to -50 °C); a genuine zero and a failed search are
+ * indistinguishable in the result, as in pythermalcomfort's return value.
  *
  * @public
  * @category Models
@@ -167,13 +171,10 @@ export function cooling_effect(
     // discontinuous there. Wherever the root is unique the two agree.
     ce = brent(func, 0, 40);
   } catch (error) {
+    // No root in the bracket: reported as 0, see the JSDoc. pythermalcomfort
+    // warns here; a library writing to the console was the only reason
+    // `charts.psychrometricZone` ever had to patch `console.warn`.
     ce = 0;
-  }
-
-  if (ce === 0) {
-    console.warn(
-      `Assuming cooling effect = 0 since it could not be calculated for this set of inputs tdb=${tdb}, tr=${tr}, rh=${rh}, vr=${vr}, clo=${clo}, met=${met}`,
-    );
   }
 
   if (units.toLowerCase() === "ip") {

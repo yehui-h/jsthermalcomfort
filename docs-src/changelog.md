@@ -2,6 +2,37 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Why the next release is a major
+
+This branch is a rewrite of jsthermalcomfort 1.4.0 in TypeScript (`d57c456`), shipped as ESM only (`ca66e01`), with its scope reduced to the PMV / PPD and adaptive comfort models and what they rest on, and with its names and applicability rules aligned to the current `pythermalcomfort`. Every retained equation replays the published 1.4.0 package byte-for-byte — `tests/baseline.test.ts` proves it against a recording of 1.4.0 — except where a bullet below says otherwise and gives the reason.
+
+### Migrating from 1.x
+
+| 1.x                                                                                                         | Unreleased                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `import jsthermalcomfort from "jsthermalcomfort"; jsthermalcomfort.models.pmv_ppd_iso(…)`                   | `import { pmv_ppd_iso } from "jsthermalcomfort";` — the default-export namespace objects are gone (see below).                                              |
+| `import { models, utilities, psychrometrics } from ".../lib/esm/index.js"`                                  | Named imports from the root, or from the subpaths `jsthermalcomfort/models`, `/utilities`, `/psychrometrics`. New subpaths: `/reference`, `/io`, `/charts`. |
+| `require("jsthermalcomfort")`                                                                               | ESM only. Node `^20.19.0 \|\| ^22.13.0 \|\| >=24` can `require()` it through `require(esm)`; bundlers and browsers import it. There is no CommonJS build.   |
+| `lib/cjs/…`, `lib/esm/types/…` deep paths                                                                   | `./lib/*` and `./package.json` stay reachable through the `exports` map; types are at `lib/esm/types`; `src/` is shipped so source maps resolve.            |
+| `two_nodes`, `t_o`, `t_mrt`, `t_wb`, `t_dp`, `enthalpy`, `rh_from_humidity_ratio`, `clo_dynamic`, `pmv_ppd` | Renamed or split to match upstream — see the table under _Breaking — renamed to match upstream_ and the `clo_dynamic` and `pmv_ppd` bullets below.          |
+
+### Removed models
+
+Twenty of the 28 model functions 1.4.0 exported are no longer part of this package. They fall outside the PMV / adaptive scope this fork maintains; their equations remain in `jsthermalcomfort@1.4.0` on npm, which is the version to pin for any of them:
+
+`a_pmv`, `ankle_draft`, `at`, `athb`, `clo_tout`, `discomfort_index`, `e_pmv`, `heat_index`, `humidex`, `net`, `pet_steady`, `phs`, `pmv`, `solar_gain`, `use_fans_heatwaves`, `utci`, `vertical_tmp_grad_ppd`, `wbgt`, `wc`, `wind_chill_temperature`.
+
+Retained: `adaptive_ashrae`, `adaptive_en`, `cooling_effect`, `pmv_ppd_ashrae`, `pmv_ppd_iso`, `set_tmp` and `two_nodes_gagge` (renamed from `two_nodes`). `pmv_ppd` survives as the unexported kernel the two PMV models share; its bullet is below.
+
+### Utilities and psychrometrics surface
+
+- Added: `clo_dynamic_ashrae`, `clo_dynamic_iso`, `ComplianceCheck`, `UNIT_SYSTEMS`, `valid_range`; in `psychrometrics`, `antoine`, `hr_to_rh`, `rh_from_dew_point`, `rh_from_vapour_pressure`, `rh_from_wet_bulb`.
+- Removed: `clo_dynamic` (split in two, bullet below). The renamed functions are listed in the table under _Breaking — renamed to match upstream_.
+
+### New layers
+
+`jsthermalcomfort/reference` publishes the sensation scales, acceptability offsets, applicability limits and standard membership as data, so a consuming tool reads one definition instead of transcribing numbers. `jsthermalcomfort/io` reduces every model to one input and output shape (`Outcome`, `Measure`, `Quantity`) without changing what the models themselves return. `jsthermalcomfort/charts` computes the psychrometric comfort zone and the adaptive bands, reproducing what the CBE Thermal Comfort Tool draws. See [Examples](examples.md) for each in use.
+
 ### Known numerical differences from pythermalcomfort
 
 Measured while aligning this package; **no behaviour was changed for either**, and the reasoning is recorded at each site in the source.
@@ -54,6 +85,12 @@ Measured while aligning this package; **no behaviour was changed for either**, a
 - Removed `LabeledInterval.notation`; read `lower` / `upper` (`{ value, inclusive }`) instead.
 - `pmv_ppd_iso` and `pmv_ppd_ashrae` no longer validate their arguments before delegating to `pmv_ppd`, which validates them identically. The errors thrown are unchanged.
 - Tooling: the pre-commit hook is a plain git hook in `.githooks/` (`npm install` points `core.hooksPath` at it); `husky` and `lint-staged` are gone. `npm run typecheck` reads the root `tsconfig.json`.
+- **Breaking — fix:** `adaptive_ashrae` now applies `round_output` last: the comfort temperature **and the four bounds** are rounded to one decimal in the output unit, after any IP conversion, and the acceptability flags are computed from the unrounded band — the order `adaptive_en` already used, adopted upstream in `c3c110e` (PR #188, issue #179). 1.4.0 rounded `t_cmf` first and derived the bounds from it. Consequences: `acceptability_80` / `acceptability_90` no longer depend on `round_output`; IP results are one decimal in °F (was the °C rounding converted, e.g. `56.66`); the bounds no longer carry float noise (`25.599999999999998` → `25.6`); at an input sitting on a rounded edge a flag can be `false` while the rounded bound reads equal to the operative temperature, which is what pythermalcomfort reports. `tests/baseline.test.ts` exempts the affected 1.4.0 rows (every rounded, finite `adaptive_ashrae` case) and `tests/models/adaptive_ashrae.test.js` pins the new values.
+- **Breaking:** the `default` exports of the root, `models`, `psychrometrics` and `utilities` entry points are gone. They were namespace objects that had already drifted from the named surface — `utilities`' omitted `valid_range`, `ComplianceCheck` and `UNIT_SYSTEMS` — and typedoc documented each as a variable. Use named imports: `import { pmv_ppd_iso } from "jsthermalcomfort"`, or from the subpath. The README's `import { models, utilities, psychrometrics }` CDN example never worked against this build (those were keys of the default object, not named exports) and is corrected.
+- **Breaking:** the `io` Outputs classes no longer copy the model's fields onto themselves. `Outcome<TInputs, TResult>` gains `readonly result: TResult`, which is the model function's own return object — `pmvPpdIso(...).pmv` is now `.result.pmv`, `adaptiveEn(...).tmp_cmf` is `.result.tmp_cmf`. Holding the object rather than re-declaring its fields is what guarantees the layer cannot drop or rename one. `tsv`, `compliance`, `warnings`, `inputs` and `toMeasures()` are unchanged.
+- **Breaking:** `charts.psychrometricZone` no longer takes `suppressModelWarnings`, and `cooling_effect` no longer writes to `console.warn` when its root search fails: it returns `{ ce: 0 }`, which is now documented. The option existed only to hide that line, which fired hundreds of times per traced zone (the search probes −50 °C on purpose) and also on a genuine zero; the library now writes nothing to the console. A failed search is still indistinguishable from a real zero in the result, as it is in pythermalcomfort's return value.
+- **Breaking:** `pmv_ppd_ashrae.COMPLIANCE_LIMIT` is removed; nothing read it. `pmv_ppd_ashrae.compliance` — a `LabeledInterval`, open at both ends, as pythermalcomfort computes `(pmv > -0.5) & (pmv < 0.5)` — is the single definition and is what `io` judges compliance with.
+- **Breaking (minor):** the `io` input classes (`BaseInputs`, `PmvPpdInputs`, `PmvPpdAshraeInputs`, `AdaptiveInputs`) no longer validate; they resolve defaults and upper-case `units`. Every model already validates the same fields with the same messages, and every `io` factory runs a model immediately, so `io.pmvPpdIso({...})` and the others throw exactly as before — only constructing an input object directly with a bad value has stopped throwing. The three schemas the layer kept were copies of the models' own.
 
 ## 1.4.0
 

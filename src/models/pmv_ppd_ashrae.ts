@@ -106,8 +106,6 @@ pmv_ppd_ashrae.standard = standards.ashrae55;
 pmv_ppd_ashrae.limits = ashrae55PmvLimits;
 /** The editions `kwargs.edition` accepts; the last is the default. */
 pmv_ppd_ashrae.editions = PMV_PPD_ASHRAE_EDITIONS;
-/** ASHRAE 55 considers a space compliant while |PMV| stays under this. */
-pmv_ppd_ashrae.COMPLIANCE_LIMIT = 0.5;
 /**
  * The compliance range, **open at both ends** — pythermalcomfort computes it as
  * `(pmv > -0.5) & (pmv < 0.5)` (`models/pmv_ppd_ashrae.py:194`), so a PMV of

@@ -73,10 +73,9 @@ const ADAPTIVE_ASHRAE_SCHEMA = {
  * @param limit_inputs - By default, if the inputs are outside the standard
  * applicability limits the function returns NaN. If false returns values even
  * if the inputs are outside the applicability limits of the model.
- * @param round_output - if true, rounds `t_cmf` to one decimal place in SI
- * before the bounds are derived; if false, returns the unrounded values. Under
- * `units = 'IP'` the rounded SI value is then converted to °F, so IP outputs
- * carry the additional decimals from the °C-to-°F conversion.
+ * @param round_output - if true, rounds the returned comfort temperature and
+ * bounds to one decimal place in the output unit (rounding is applied after any
+ * IP unit conversion); if false, returns the unrounded values.
  *
  * @returns set containing results for the model
  *
@@ -198,10 +197,6 @@ export function adaptive_ashrae_with_warnings(
   }
   if (limit_inputs && warnings.length > 0) t_cmf = NaN;
 
-  if (round_output) {
-    t_cmf = round(t_cmf, 1);
-  }
-
   // The band widths come from the reference table, not from literals repeated
   // here: `adaptiveAshraeOffsets` is what `adaptive_ashrae.offsets` publishes
   // and what the I/O and chart layers label these bounds with.
@@ -231,6 +226,20 @@ export function adaptive_ashrae_with_warnings(
       },
       "SI",
     ));
+  }
+
+  // Rounded last, in the output unit, so the acceptability test above sees
+  // the unrounded band and the bounds themselves come back at one decimal —
+  // the order `adaptive_en` already used, adopted upstream in `c3c110e`
+  // (PR #188, issue #179). Rounding `t_cmf` before deriving the bounds let
+  // `round_output` flip a flag at inputs sitting on a rounded edge, and IP
+  // callers got the °C rounding converted rather than one decimal in °F.
+  if (round_output) {
+    t_cmf = round(t_cmf, 1);
+    tmp_cmf_80_low = round(tmp_cmf_80_low, 1);
+    tmp_cmf_80_up = round(tmp_cmf_80_up, 1);
+    tmp_cmf_90_low = round(tmp_cmf_90_low, 1);
+    tmp_cmf_90_up = round(tmp_cmf_90_up, 1);
   }
 
   return {

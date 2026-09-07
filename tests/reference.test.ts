@@ -272,7 +272,6 @@ describe("metadata attached to the model functions", () => {
   it("states the ASHRAE compliance range as an open interval", () => {
     // pythermalcomfort computes it as (pmv > -0.5) & (pmv < 0.5), so exactly
     // ±0.5 is *not* compliant. A closed interval would silently widen it.
-    expect(pmv_ppd_ashrae.COMPLIANCE_LIMIT).toBe(0.5);
     expect(pmv_ppd_ashrae.compliance.lower).toEqual({
       value: -0.5,
       inclusive: false,

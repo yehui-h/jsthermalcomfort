@@ -80,8 +80,12 @@ describe("I/O layer matches the model functions", () => {
         );
         const viaIo = pmvPpdIso(options);
         const label = JSON.stringify(options);
-        expectSame(viaIo.pmv, direct.pmv, `${label} pmv`);
-        expectSame(viaIo.ppd, direct.ppd, `${label} ppd`);
+        expectSame(viaIo.result.pmv, direct.pmv, `${label} pmv`);
+        expectSame(viaIo.result.ppd, direct.ppd, `${label} ppd`);
+        // `result` is the model's return object: no field added, none lost.
+        expect(Object.keys(viaIo.result).sort()).toEqual(
+          Object.keys(direct).sort(),
+        );
       }
     }
   });
@@ -102,8 +106,12 @@ describe("I/O layer matches the model functions", () => {
         );
         const viaIo = pmvPpdAshrae(options);
         const label = JSON.stringify(options);
-        expectSame(viaIo.pmv, direct.pmv, `${label} pmv`);
-        expectSame(viaIo.ppd, direct.ppd, `${label} ppd`);
+        expectSame(viaIo.result.pmv, direct.pmv, `${label} pmv`);
+        expectSame(viaIo.result.ppd, direct.ppd, `${label} ppd`);
+        // `result` is the model's return object: no field added, none lost.
+        expect(Object.keys(viaIo.result).sort()).toEqual(
+          Object.keys(direct).sort(),
+        );
       }
     }
   });
@@ -124,11 +132,14 @@ describe("I/O layer matches the model functions", () => {
         const viaIo = adaptiveAshrae(options);
         for (const [key, expected] of Object.entries(direct)) {
           expectSame(
-            viaIo[key as keyof typeof direct],
+            viaIo.result[key as keyof typeof direct],
             expected,
             `${JSON.stringify(options)} ${key}`,
           );
         }
+        expect(Object.keys(viaIo.result).sort()).toEqual(
+          Object.keys(direct).sort(),
+        );
       }
     }
   });
@@ -149,11 +160,14 @@ describe("I/O layer matches the model functions", () => {
         const viaIo = adaptiveEn(options);
         for (const [key, expected] of Object.entries(direct)) {
           expectSame(
-            viaIo[key as keyof typeof direct],
+            viaIo.result[key as keyof typeof direct],
             expected,
             `${JSON.stringify(options)} ${key}`,
           );
         }
+        expect(Object.keys(viaIo.result).sort()).toEqual(
+          Object.keys(direct).sort(),
+        );
       }
     }
   });
@@ -168,21 +182,21 @@ describe("I/O layer matches the model functions", () => {
       clo: 0.5,
     });
     const [pmvMeasure, ppdMeasure] = pmv.toMeasures();
-    expect(pmvMeasure!.value).toBe(pmv.pmv);
-    expect(ppdMeasure!.value).toBe(pmv.ppd);
+    expect(pmvMeasure!.value).toBe(pmv.result.pmv);
+    expect(ppdMeasure!.value).toBe(pmv.result.ppd);
 
     const en = adaptiveEn({ tdb: 25, tr: 25, t_running_mean: 20, v: 0.1 });
     const [cmf] = en.toMeasures();
-    expect(cmf!.value).toBe(en.tmp_cmf);
+    expect(cmf!.value).toBe(en.result.tmp_cmf);
     expect(cmf!.intervals.map((band) => band.low)).toEqual([
-      en.tmp_cmf_cat_i_low,
-      en.tmp_cmf_cat_ii_low,
-      en.tmp_cmf_cat_iii_low,
+      en.result.tmp_cmf_cat_i_low,
+      en.result.tmp_cmf_cat_ii_low,
+      en.result.tmp_cmf_cat_iii_low,
     ]);
     expect(cmf!.intervals.map((band) => band.high)).toEqual([
-      en.tmp_cmf_cat_i_up,
-      en.tmp_cmf_cat_ii_up,
-      en.tmp_cmf_cat_iii_up,
+      en.result.tmp_cmf_cat_i_up,
+      en.result.tmp_cmf_cat_ii_up,
+      en.result.tmp_cmf_cat_iii_up,
     ]);
   });
 });
@@ -214,30 +228,29 @@ describe("inputs", () => {
     });
     expect(inputs.units).toBe("IP");
     // And the model behind it agrees, which is the point of normalising.
-    expect(adaptiveEn({ ...inputs, units: "ip" }).tmp_cmf).toBe(
-      adaptiveEn(inputs).tmp_cmf,
+    expect(adaptiveEn({ ...inputs, units: "ip" }).result.tmp_cmf).toBe(
+      adaptiveEn(inputs).result.tmp_cmf,
     );
   });
 
-  it("rejects an unknown unit system and a non-finite number", () => {
-    expect(
-      () =>
-        new AdaptiveInputs({
-          tdb: 25,
-          tr: 25,
-          t_running_mean: 20,
-          v: 0.1,
-          units: "metric" as never,
-        }),
-    ).toThrow(/must be one of/);
-    expect(
-      () =>
-        new AdaptiveInputs({
-          tdb: NaN,
-          tr: 25,
-          t_running_mean: 20,
-          v: 0.1,
-        }),
+  it("rejects an unknown unit system and a non-finite number at the model call", () => {
+    // The input classes resolve defaults only; the model behind each factory
+    // validates, so the same call throws the same error as a direct one.
+    const bad = {
+      tdb: 25,
+      tr: 25,
+      t_running_mean: 20,
+      v: 0.1,
+      units: "metric" as never,
+    };
+    expect(() => new AdaptiveInputs(bad)).not.toThrow();
+    expect(() => adaptiveEn(bad)).toThrow(/must be one of/);
+    expect(() => adaptiveAshrae(bad)).toThrow(/must be one of/);
+    expect(() =>
+      adaptiveEn({ tdb: NaN, tr: 25, t_running_mean: 20, v: 0.1 }),
+    ).toThrow(TypeError);
+    expect(() =>
+      pmvPpdIso({ tdb: NaN, tr: 25, vr: 0.1, rh: 50, met: 1.2, clo: 0.5 }),
     ).toThrow(TypeError);
   });
 });
@@ -268,8 +281,8 @@ describe("classification", () => {
       met: 1.2,
       clo: 0.5,
     };
-    expect(pmvPpdIso(shared).pmv).toBe(-0.5);
-    expect(pmvPpdAshrae(shared).pmv).toBe(-0.5);
+    expect(pmvPpdIso(shared).result.pmv).toBe(-0.5);
+    expect(pmvPpdAshrae(shared).result.pmv).toBe(-0.5);
     expect(pmvPpdIso(shared).tsv).toBe("Neutral");
     expect(pmvPpdAshrae(shared).tsv).toBe("Neutral");
   });
@@ -283,7 +296,7 @@ describe("classification", () => {
       met: 1.2,
       clo: 0.5,
     });
-    expect(out.pmv).toBeNaN();
+    expect(out.result.pmv).toBeNaN();
     expect(out.tsv).toBeUndefined();
     expect(out.toMeasures()[0]!.category).toBeUndefined();
   });
@@ -302,7 +315,7 @@ describe("ASHRAE compliance", () => {
     // -0.4999 is. pythermalcomfort evaluates compliance before rounding, so
     // the answer here is true.
     const out = pmvPpdAshrae({ ...base, tdb: 23.029, tr: 23.029 });
-    expect(out.pmv).toBe(-0.5);
+    expect(out.result.pmv).toBe(-0.5);
     expect(out.compliance).toBe(true);
   });
 
@@ -336,8 +349,8 @@ describe("adaptive comfort ranges", () => {
       adaptiveAshraeOffsets.map((offset) => offset.label),
     );
     expect(cmf!.intervals.map((band) => band.satisfied)).toEqual([
-      out.acceptability_80,
-      out.acceptability_90,
+      out.result.acceptability_80,
+      out.result.acceptability_90,
     ]);
 
     // Each label has to sit on its own numbers, not merely appear in the right
@@ -345,8 +358,8 @@ describe("adaptive comfort ranges", () => {
     // pass with 80% and 90% swapped. v = 0.1 keeps the cooling effect at zero.
     for (const [index, offset] of adaptiveAshraeOffsets.entries()) {
       const band = cmf!.intervals[index]!;
-      expect(band.low).toBeCloseTo(out.tmp_cmf + offset.low, 10);
-      expect(band.high).toBeCloseTo(out.tmp_cmf + offset.up, 10);
+      expect(band.low).toBeCloseTo(out.result.tmp_cmf + offset.low, 10);
+      expect(band.high).toBeCloseTo(out.result.tmp_cmf + offset.up, 10);
     }
   });
 
@@ -370,10 +383,10 @@ describe("adaptive comfort ranges", () => {
       const band = bands[index]!;
       // v = 0.1 keeps the cooling effect at zero, so the bounds are exactly
       // tmp_cmf plus the declared offsets.
-      expect(band.low).toBeCloseTo(out.tmp_cmf + offset.low, 10);
-      expect(band.high).toBeCloseTo(out.tmp_cmf + offset.up, 10);
-      expect(band.high - out.tmp_cmf).not.toBeCloseTo(
-        out.tmp_cmf - band.low,
+      expect(band.low).toBeCloseTo(out.result.tmp_cmf + offset.low, 10);
+      expect(band.high).toBeCloseTo(out.result.tmp_cmf + offset.up, 10);
+      expect(band.high - out.result.tmp_cmf).not.toBeCloseTo(
+        out.result.tmp_cmf - band.low,
         10,
       );
     }
@@ -395,7 +408,7 @@ describe("warnings", () => {
       met: 1.2,
       clo: 0.5,
     });
-    expect(out.pmv).toBeNaN();
+    expect(out.result.pmv).toBeNaN();
     expect(out.warnings.join(" ")).toMatch(/ISO air temperature/);
   });
 

@@ -15,8 +15,6 @@ import {
 } from "./classes_input.js";
 import { quantities, unitFor } from "./quantity.js";
 import type { ComfortInterval, Measure } from "./measure.js";
-// Implemented, not re-declared: an Outputs class that drops or renames a field
-// the model returns stops compiling here.
 import type { AdaptiveAshraeResult } from "../models/adaptive_ashrae.js";
 import type { AdaptiveEnResult } from "../models/adaptive_en.js";
 import type { PmvPpdResult } from "../models/pmv_ppd.js";
@@ -35,18 +33,22 @@ const [catI, catII, catIII] = adaptiveEnOffsets;
 /**
  * Results of one model run, in the shape every model reduces to.
  *
- * `toMeasures()` re-packages what the model already returned; it never
- * recomputes, so its numbers are bit-identical to a direct call.
+ * `result` is the model function's own return object, not a copy: the I/O
+ * layer never re-declares a model field, so it cannot drop or rename one, and
+ * `toMeasures()` re-packages those numbers without recomputing them — they are
+ * bit-identical to a direct call.
  *
- * `TInputs` is the validated input class the run came from, so a caller holding
- * a concrete outcome reads `inputs.tdb` without casting; `Outcome` on its own
- * still describes any of them.
+ * `TInputs` is the input class the run came from, so a caller holding a
+ * concrete outcome reads `inputs.tdb` without casting; `TResult` is the model's
+ * return type. `Outcome` on its own still describes any of them.
  *
  * @public
  */
-export interface Outcome<TInputs = unknown> {
-  /** The validated inputs this result came from. */
+export interface Outcome<TInputs = unknown, TResult = unknown> {
+  /** The inputs this result came from, defaults resolved. */
   readonly inputs: TInputs;
+  /** Exactly what the model function returns for these inputs. */
+  readonly result: TResult;
   /** Why the result is NaN, when it is. Empty when every input was in range. */
   readonly warnings: readonly string[];
   toMeasures(): readonly Measure[];
@@ -79,12 +81,10 @@ function bandFrom(
  *
  * @public
  */
-export class PmvPpdIsoOutputs implements Outcome<PmvPpdInputs>, PmvPpdResult {
+export class PmvPpdIsoOutputs implements Outcome<PmvPpdInputs, PmvPpdResult> {
   readonly inputs: PmvPpdInputs;
-  /** Predicted Mean Vote. */
-  readonly pmv: number;
-  /** Predicted Percentage of Dissatisfied, [%]. */
-  readonly ppd: number;
+  /** `{ pmv, ppd }`, as `pmv_ppd_iso` returns it. */
+  readonly result: PmvPpdResult;
   /**
    * Thermal sensation band, e.g. `"Slightly Cool"`. `undefined` when the PMV
    * falls outside the scale — NaN included.
@@ -95,8 +95,8 @@ export class PmvPpdIsoOutputs implements Outcome<PmvPpdInputs>, PmvPpdResult {
   constructor(inputs: PmvPpdInputs) {
     // The kernel rather than pmv_ppd_iso(): same arithmetic, same rounding,
     // but it also hands back the applicability warnings the public function
-    // discards. Inputs were validated by PmvPpdInputs.
-    const result = pmv_ppd_with_warnings(
+    // discards. What is left after taking those off is the public return.
+    const { warnings, pmv_unrounded, ...result } = pmv_ppd_with_warnings(
       inputs.tdb,
       inputs.tr,
       inputs.vr,
@@ -112,27 +112,27 @@ export class PmvPpdIsoOutputs implements Outcome<PmvPpdInputs>, PmvPpdResult {
       },
     );
     this.inputs = inputs;
-    this.pmv = result.pmv;
-    this.ppd = result.ppd;
+    this.result = result;
     // Classified from the returned PMV, so rounding is applied first — the
     // order pythermalcomfort uses (`mapping()` runs after `np.round`).
     this.tsv = pmv_ppd_iso.tsv.labelFor(result.pmv);
-    this.warnings = result.warnings;
+    this.warnings = warnings;
   }
 
   toMeasures(): readonly Measure[] {
     const { units } = this.inputs;
+    const { pmv, ppd } = this.result;
     return [
       {
         quantity: quantities.pmv,
-        value: this.pmv,
+        value: pmv,
         unit: unitFor(quantities.pmv, units),
         category: this.tsv,
         intervals: [],
       },
       {
         quantity: quantities.ppd,
-        value: this.ppd,
+        value: ppd,
         unit: unitFor(quantities.ppd, units),
         intervals: [],
       },
@@ -146,14 +146,13 @@ export class PmvPpdIsoOutputs implements Outcome<PmvPpdInputs>, PmvPpdResult {
  *
  * @public
  */
-export class PmvPpdAshraeOutputs
-  implements Outcome<PmvPpdAshraeInputs>, PmvPpdResult
-{
+export class PmvPpdAshraeOutputs implements Outcome<
+  PmvPpdAshraeInputs,
+  PmvPpdResult
+> {
   readonly inputs: PmvPpdAshraeInputs;
-  /** Predicted Mean Vote. */
-  readonly pmv: number;
-  /** Predicted Percentage of Dissatisfied, [%]. */
-  readonly ppd: number;
+  /** `{ pmv, ppd }`, as `pmv_ppd_ashrae` returns it. */
+  readonly result: PmvPpdResult;
   /**
    * Thermal sensation band. ASHRAE closes the scale from the opposite side to
    * ISO, so at exactly -0.5 this reads `"Slightly Cool"` where ISO reads
@@ -169,7 +168,7 @@ export class PmvPpdAshraeOutputs
   readonly warnings: readonly string[];
 
   constructor(inputs: PmvPpdAshraeInputs) {
-    const result = pmv_ppd_with_warnings(
+    const { warnings, pmv_unrounded, ...result } = pmv_ppd_with_warnings(
       inputs.tdb,
       inputs.tr,
       inputs.vr,
@@ -186,25 +185,25 @@ export class PmvPpdAshraeOutputs
       },
     );
     this.inputs = inputs;
-    this.pmv = result.pmv;
-    this.ppd = result.ppd;
+    this.result = result;
     this.tsv = pmv_ppd_ashrae.tsv.labelFor(result.pmv);
     // Compliance is judged on the unrounded PMV: pythermalcomfort evaluates it
     // before rounding, so a PMV of 0.4996 complies even though it is reported
     // as 0.5.
-    this.compliance = Number.isNaN(result.pmv_unrounded)
+    this.compliance = Number.isNaN(pmv_unrounded)
       ? undefined
-      : pmv_ppd_ashrae.compliance.contains(result.pmv_unrounded);
-    this.warnings = result.warnings;
+      : pmv_ppd_ashrae.compliance.contains(pmv_unrounded);
+    this.warnings = warnings;
   }
 
   toMeasures(): readonly Measure[] {
     const { units } = this.inputs;
+    const { pmv, ppd } = this.result;
     const { compliance } = pmv_ppd_ashrae;
     return [
       {
         quantity: quantities.pmv,
-        value: this.pmv,
+        value: pmv,
         unit: unitFor(quantities.pmv, units),
         category: this.tsv,
         // No verdict, no interval: an out-of-applicability run has nothing to
@@ -224,7 +223,7 @@ export class PmvPpdAshraeOutputs
       },
       {
         quantity: quantities.ppd,
-        value: this.ppd,
+        value: ppd,
         unit: unitFor(quantities.ppd, units),
         intervals: [],
       },
@@ -238,22 +237,17 @@ export class PmvPpdAshraeOutputs
  *
  * @public
  */
-export class AdaptiveAshraeOutputs
-  implements Outcome<AdaptiveInputs>, AdaptiveAshraeResult
-{
+export class AdaptiveAshraeOutputs implements Outcome<
+  AdaptiveInputs,
+  AdaptiveAshraeResult
+> {
   readonly inputs: AdaptiveInputs;
-  /** Comfort temperature at that running mean temperature. */
-  readonly tmp_cmf: number;
-  readonly tmp_cmf_80_low: number;
-  readonly tmp_cmf_80_up: number;
-  readonly tmp_cmf_90_low: number;
-  readonly tmp_cmf_90_up: number;
-  readonly acceptability_80: boolean;
-  readonly acceptability_90: boolean;
+  /** The comfort temperature, bounds and flags, as `adaptive_ashrae` returns them. */
+  readonly result: AdaptiveAshraeResult;
   readonly warnings: readonly string[];
 
   constructor(inputs: AdaptiveInputs) {
-    const result = adaptive_ashrae_with_warnings(
+    const { warnings, ...result } = adaptive_ashrae_with_warnings(
       inputs.tdb,
       inputs.tr,
       inputs.t_running_mean,
@@ -263,14 +257,8 @@ export class AdaptiveAshraeOutputs
       inputs.round_output,
     );
     this.inputs = inputs;
-    this.tmp_cmf = result.tmp_cmf;
-    this.tmp_cmf_80_low = result.tmp_cmf_80_low;
-    this.tmp_cmf_80_up = result.tmp_cmf_80_up;
-    this.tmp_cmf_90_low = result.tmp_cmf_90_low;
-    this.tmp_cmf_90_up = result.tmp_cmf_90_up;
-    this.acceptability_80 = result.acceptability_80;
-    this.acceptability_90 = result.acceptability_90;
-    this.warnings = result.warnings;
+    this.result = result;
+    this.warnings = warnings;
   }
 
   /**
@@ -279,21 +267,22 @@ export class AdaptiveAshraeOutputs
    * the result, so it is reported rather than left to the caller to derive.
    */
   toMeasures(): readonly Measure[] {
+    const r = this.result;
     return [
       {
         quantity: quantities.tmp_cmf,
-        value: this.tmp_cmf,
+        value: r.tmp_cmf,
         unit: unitFor(quantities.tmp_cmf, this.inputs.units),
         intervals: [
           bandFrom(band80, {
-            low: this.tmp_cmf_80_low,
-            high: this.tmp_cmf_80_up,
-            satisfied: this.acceptability_80,
+            low: r.tmp_cmf_80_low,
+            high: r.tmp_cmf_80_up,
+            satisfied: r.acceptability_80,
           }),
           bandFrom(band90, {
-            low: this.tmp_cmf_90_low,
-            high: this.tmp_cmf_90_up,
-            satisfied: this.acceptability_90,
+            low: r.tmp_cmf_90_low,
+            high: r.tmp_cmf_90_up,
+            satisfied: r.acceptability_90,
           }),
         ],
       },
@@ -306,25 +295,18 @@ export class AdaptiveAshraeOutputs
  *
  * @public
  */
-export class AdaptiveEnOutputs
-  implements Outcome<AdaptiveInputs>, AdaptiveEnResult
-{
+export class AdaptiveEnOutputs implements Outcome<
+  AdaptiveInputs,
+  AdaptiveEnResult
+> {
   readonly inputs: AdaptiveInputs;
-  /** Comfort temperature at that running mean temperature. */
-  readonly tmp_cmf: number;
-  readonly tmp_cmf_cat_i_low: number;
-  readonly tmp_cmf_cat_i_up: number;
-  readonly tmp_cmf_cat_ii_low: number;
-  readonly tmp_cmf_cat_ii_up: number;
-  readonly tmp_cmf_cat_iii_low: number;
-  readonly tmp_cmf_cat_iii_up: number;
-  readonly acceptability_cat_i: boolean;
-  readonly acceptability_cat_ii: boolean;
-  readonly acceptability_cat_iii: boolean;
+  /** The comfort temperature, bounds and flags, as `adaptive_en` returns them. */
+  readonly result: AdaptiveEnResult;
   readonly warnings: readonly string[];
 
   constructor(inputs: AdaptiveInputs) {
-    const result = adaptive_en(
+    this.inputs = inputs;
+    this.result = adaptive_en(
       inputs.tdb,
       inputs.tr,
       inputs.t_running_mean,
@@ -333,42 +315,32 @@ export class AdaptiveEnOutputs
       inputs.limit_inputs,
       inputs.round_output,
     );
-    this.inputs = inputs;
-    this.tmp_cmf = result.tmp_cmf;
-    this.tmp_cmf_cat_i_low = result.tmp_cmf_cat_i_low;
-    this.tmp_cmf_cat_i_up = result.tmp_cmf_cat_i_up;
-    this.tmp_cmf_cat_ii_low = result.tmp_cmf_cat_ii_low;
-    this.tmp_cmf_cat_ii_up = result.tmp_cmf_cat_ii_up;
-    this.tmp_cmf_cat_iii_low = result.tmp_cmf_cat_iii_low;
-    this.tmp_cmf_cat_iii_up = result.tmp_cmf_cat_iii_up;
-    this.acceptability_cat_i = result.acceptability_cat_i;
-    this.acceptability_cat_ii = result.acceptability_cat_ii;
-    this.acceptability_cat_iii = result.acceptability_cat_iii;
     this.warnings = adaptiveEnWarnings(inputs);
   }
 
   /** One measure — the comfort temperature — carrying all three categories. */
   toMeasures(): readonly Measure[] {
+    const r = this.result;
     return [
       {
         quantity: quantities.tmp_cmf,
-        value: this.tmp_cmf,
+        value: r.tmp_cmf,
         unit: unitFor(quantities.tmp_cmf, this.inputs.units),
         intervals: [
           bandFrom(catI, {
-            low: this.tmp_cmf_cat_i_low,
-            high: this.tmp_cmf_cat_i_up,
-            satisfied: this.acceptability_cat_i,
+            low: r.tmp_cmf_cat_i_low,
+            high: r.tmp_cmf_cat_i_up,
+            satisfied: r.acceptability_cat_i,
           }),
           bandFrom(catII, {
-            low: this.tmp_cmf_cat_ii_low,
-            high: this.tmp_cmf_cat_ii_up,
-            satisfied: this.acceptability_cat_ii,
+            low: r.tmp_cmf_cat_ii_low,
+            high: r.tmp_cmf_cat_ii_up,
+            satisfied: r.acceptability_cat_ii,
           }),
           bandFrom(catIII, {
-            low: this.tmp_cmf_cat_iii_low,
-            high: this.tmp_cmf_cat_iii_up,
-            satisfied: this.acceptability_cat_iii,
+            low: r.tmp_cmf_cat_iii_low,
+            high: r.tmp_cmf_cat_iii_up,
+            satisfied: r.acceptability_cat_iii,
           }),
         ],
       },

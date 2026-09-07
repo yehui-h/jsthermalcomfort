@@ -124,17 +124,6 @@ export interface PsychrometricZoneOptions {
    * produce; leave it off to match what the website draws.
    */
   readonly correctKnownDefects?: boolean;
-  /**
-   * Swallow the warnings the models log while the zone is being traced.
-   * Default `true`.
-   *
-   * The search probes far outside every applicability range on purpose — the
-   * bracket is -50 to 50 °C — and `cooling_effect` logs a line every time it
-   * fails to find a root out there. Left alone, one ASHRAE zone writes
-   * hundreds of lines that say nothing about the zone. Set `false` to see
-   * them.
-   */
-  readonly suppressModelWarnings?: boolean;
 }
 
 /**
@@ -176,19 +165,6 @@ export interface PsychrometricZoneOptions {
 export function psychrometricZone(
   options: PsychrometricZoneOptions,
 ): PsychrometricZone {
-  if (options.suppressModelWarnings === false) return trace(options);
-  // Restored in `finally`, and the trace is synchronous, so nothing else can
-  // log in between.
-  const warn = console.warn;
-  console.warn = () => {};
-  try {
-    return trace(options);
-  } finally {
-    console.warn = warn;
-  }
-}
-
-function trace(options: PsychrometricZoneOptions): PsychrometricZone {
   const {
     tr,
     vr,

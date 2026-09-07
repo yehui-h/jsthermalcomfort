@@ -1,8 +1,8 @@
 import { expect, describe, it } from "vitest";
-import jsthermalcomfort from "../src";
-// The named surface, as a consumer sees it: the default export above only
-// carries the three function namespaces.
 import * as lib from "../src/index.js";
+import * as models from "../src/models/index.js";
+import * as psychrometrics from "../src/psychrometrics/index.js";
+import * as utilities from "../src/utilities/index.js";
 
 // The public model surface. Deliberately exhaustive: it is what catches an
 // accidental export being dropped. Every name here is imported by the CBE
@@ -31,6 +31,10 @@ const PSYCHROMETRICS = [
   "wet_bulb_tmp",
   "dew_point_tmp",
   "mean_radiant_tmp",
+  "rh_from_dew_point",
+  "hr_to_rh",
+  "rh_from_vapour_pressure",
+  "rh_from_wet_bulb",
 ];
 
 const UTILITIES = [
@@ -45,38 +49,56 @@ const UTILITIES = [
   "clo_typical_ensembles",
   "clo_individual_garments",
   "check_standard_compliance",
+  "valid_range",
+  "ComplianceCheck",
+  "UNIT_SYSTEMS",
 ];
 
-describe("NPM Package", () => {
-  it("should be an object", () => {
-    expect(jsthermalcomfort).toBeInstanceOf(Object);
+// Runtime values the barrels export besides the functions above.
+const MODEL_DATA = ["PMV_PPD_ISO_EDITIONS", "PMV_PPD_ASHRAE_EDITIONS"];
+
+describe("named surface of each entry point", () => {
+  it.each(MODELS)("models exports the function %s", (name) => {
+    expect(typeof models[name]).toBe("function");
+    expect(typeof lib[name]).toBe("function");
   });
 
-  it.each(["utilities", "psychrometrics", "models"])(
-    "should have the %s namespace",
-    (namespace) => {
-      expect(jsthermalcomfort[namespace]).toBeInstanceOf(Object);
-    },
-  );
-
-  it.each(MODELS)("should have models.%s", (name) => {
-    expect(jsthermalcomfort.models).toHaveProperty(name);
-    expect(typeof jsthermalcomfort.models[name]).toBe("function");
-  });
-
-  it("should expose exactly the retained models", () => {
-    expect(Object.keys(jsthermalcomfort.models).sort()).toEqual(
-      [...MODELS].sort(),
+  it("models exports exactly the retained models and their edition tables", () => {
+    expect(Object.keys(models).sort()).toEqual(
+      [...MODELS, ...MODEL_DATA].sort(),
     );
   });
 
-  it.each(PSYCHROMETRICS)("should have psychrometrics.%s", (name) => {
-    expect(jsthermalcomfort.psychrometrics).toHaveProperty(name);
-    expect(typeof jsthermalcomfort.psychrometrics[name]).toBe("function");
+  it.each(PSYCHROMETRICS)("psychrometrics exports the function %s", (name) => {
+    expect(typeof psychrometrics[name]).toBe("function");
+    expect(typeof lib[name]).toBe("function");
   });
 
-  it.each(UTILITIES)("should have utilities.%s", (name) => {
-    expect(jsthermalcomfort.utilities).toHaveProperty(name);
+  it("psychrometrics exports exactly the listed names", () => {
+    expect(Object.keys(psychrometrics).sort()).toEqual(
+      [...PSYCHROMETRICS].sort(),
+    );
+  });
+
+  it.each(UTILITIES)("utilities exports %s", (name) => {
+    expect(utilities).toHaveProperty(name);
+    expect(lib).toHaveProperty(name);
+  });
+
+  it("utilities exports exactly the listed names", () => {
+    expect(Object.keys(utilities).sort()).toEqual([...UTILITIES].sort());
+  });
+
+  // 1.4.0 also shipped `export default { models, utilities, psychrometrics }`
+  // and a default object on each barrel. Those objects had drifted from the
+  // named surface and are gone on this branch; named imports are the only surface.
+  it.each([
+    ["root", lib],
+    ["models", models],
+    ["psychrometrics", psychrometrics],
+    ["utilities", utilities],
+  ])("%s has no default export", (_label, ns) => {
+    expect("default" in ns).toBe(false);
   });
 });
 
