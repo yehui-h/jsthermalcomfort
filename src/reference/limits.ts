@@ -224,9 +224,10 @@ export const ashrae55PmvLimits: readonly ApplicabilityLimit[] = [
  * ASHRAE 55 applicability limits for the adaptive model.
  *
  * The first three rows are the very objects in {@link ashrae55PmvLimits} —
- * `adaptive_ashrae` runs the same `check_standard_compliance("ASHRAE", …)` over
- * `tdb`, `tr` and `v`. The running mean is the model's own extra check, and is
- * the reason this table exists separately.
+ * ASHRAE 55 bounds `tdb`, `tr` and `v` identically for both models. The running
+ * mean is the adaptive model's own extra check, and is the reason this table
+ * exists separately; `adaptive_ashrae` range-checks all four rows in one pass
+ * over this table.
  *
  * @public
  */
@@ -242,6 +243,32 @@ export const ashrae55AdaptiveLimits: readonly ApplicabilityLimit[] = [
     // U+00B0 DEGREE SIGN here, not the U+00BA the utilities messages use.
     warning:
       "ASHRAE running mean outdoor temperature applicability limits between 10.0 and 33.5 °C",
+  },
+];
+
+/**
+ * EN 16798-1 applicability limits for the adaptive model: the running mean
+ * outdoor temperature alone.
+ *
+ * Source, not mirror: `adaptive_en` reads this row for its bound and the `io`
+ * layer reads it for the sentence, so the number and the message have one
+ * home. The wording keeps the U+00B0 degree sign the sentence has always had.
+ *
+ * The bound is 33.5 °C, not the 30 °C pythermalcomfort's `adaptive_en.py` documents.
+ * pythermalcomfort has the same split — `adaptive_en.py` documents 30 and
+ * checks `valid_range(t_running_mean, (10.0, 33.5))` — and the code is what
+ * decides the result.
+ *
+ * @public
+ */
+export const en16798AdaptiveLimits: readonly ApplicabilityLimit[] = [
+  {
+    quantity: quantities.t_running_mean,
+    role: "input",
+    min: 10,
+    max: 33.5,
+    warning:
+      "EN running mean outdoor temperature applicability limits between 10.0 and 33.5 °C",
   },
 ];
 

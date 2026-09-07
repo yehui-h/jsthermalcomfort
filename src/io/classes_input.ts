@@ -1,3 +1,5 @@
+import { PMV_PPD_ISO_DEFAULT_EDITION } from "../models/pmv_ppd_iso.js";
+import type { PmvPpdIsoEdition } from "../models/pmv_ppd_iso.js";
 import type { UnitSystem } from "../utilities/utilities.js";
 
 /**
@@ -65,6 +67,16 @@ export interface PmvPpdInit extends BaseInputsInit {
   wme?: number | undefined;
 }
 
+/** What {@link PmvPpdIsoInputs} accepts. */
+export interface PmvPpdIsoInit extends PmvPpdInit {
+  /**
+   * ISO 7730 edition the result is reported under. Default
+   * {@link PMV_PPD_ISO_DEFAULT_EDITION}. Changes no numbers today; see
+   * `PmvPpdIsoKwargs.edition`.
+   */
+  edition?: PmvPpdIsoEdition | undefined;
+}
+
 /** What {@link PmvPpdAshraeInputs} accepts. */
 export interface PmvPpdAshraeInit extends PmvPpdInit {
   /** Whether occupants control the air speed. Default `true`. */
@@ -84,8 +96,8 @@ export interface AdaptiveInit extends BaseInputsInit {
 }
 
 /**
- * Inputs for a PMV/PPD model, defaults resolved. Used as-is for ISO 7730;
- * ASHRAE 55 extends it with `airspeed_control`.
+ * Inputs for a PMV/PPD model, defaults resolved. ISO 7730 extends it with
+ * `edition`, ASHRAE 55 with `airspeed_control`.
  *
  * @public
  */
@@ -107,6 +119,22 @@ export class PmvPpdInputs extends BaseInputs {
     this.met = init.met;
     this.clo = init.clo;
     this.wme = init.wme ?? 0;
+  }
+}
+
+/**
+ * Inputs for the ISO 7730 PMV/PPD model. Adds `edition`, which only that
+ * standard has; the value is defaulted here and validated when the model runs
+ * (`PmvPpdIsoOutputs`), as every other argument is.
+ *
+ * @public
+ */
+export class PmvPpdIsoInputs extends PmvPpdInputs {
+  readonly edition: PmvPpdIsoEdition;
+
+  constructor(init: PmvPpdIsoInit) {
+    super(init);
+    this.edition = init.edition ?? PMV_PPD_ISO_DEFAULT_EDITION;
   }
 }
 

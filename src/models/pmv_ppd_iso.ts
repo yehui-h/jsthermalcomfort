@@ -27,13 +27,40 @@ export const PMV_PPD_ISO_EDITIONS = ["7730-2005", "7730-2025"] as const;
 export type PmvPpdIsoEdition = (typeof PMV_PPD_ISO_EDITIONS)[number];
 
 /**
+ * The edition {@link pmv_ppd_iso} applies when none is asked for: the newest,
+ * as upstream. Spelled once, here; the `io` layer reads it rather than
+ * repeating it. Consumers read `pmv_ppd_iso.editions` — the last entry is the
+ * default.
+ *
+ * @internal
+ */
+export const PMV_PPD_ISO_DEFAULT_EDITION: PmvPpdIsoEdition = "7730-2025";
+
+/**
+ * Rejects an edition this package does not implement.
+ *
+ * Shared by {@link pmv_ppd_iso} and the `io` layer, which runs the kernel
+ * directly for its warnings and would otherwise bypass this check.
+ *
+ * @internal
+ */
+export function assert_pmv_ppd_iso_edition(
+  edition: string,
+): asserts edition is PmvPpdIsoEdition {
+  if (!(PMV_PPD_ISO_EDITIONS as readonly string[]).includes(edition))
+    throw new Error(
+      `Edition '${edition}' is not supported. Supported editions are: ${PMV_PPD_ISO_EDITIONS.join(", ")}.`,
+    );
+}
+
+/**
  * Optional overrides accepted by {@link pmv_ppd_iso}: everything
  * `pmv_ppd` takes except the ASHRAE-only `airspeed_control`, plus the
  * edition of the standard being applied.
  */
 export type PmvPpdIsoKwargs = Omit<PmvPpdKwargs, "airspeed_control"> & {
   /**
-   * ISO 7730 edition. Default `"7730-2025"`, as upstream.
+   * ISO 7730 edition. Default {@link PMV_PPD_ISO_DEFAULT_EDITION}, as upstream.
    *
    * The two editions currently run the same kernel over the same limits, so
    * this changes no numbers — it exists so a result can say which edition it
@@ -94,11 +121,8 @@ export function pmv_ppd_iso(
   // `edition` is checked here and not forwarded: it selects which edition the
   // result is reported under, and both run the same kernel over the same
   // limits, so nothing downstream needs to see it.
-  const { edition = "7730-2025", ...rest } = kwargs;
-  if (!PMV_PPD_ISO_EDITIONS.includes(edition))
-    throw new Error(
-      `Edition '${edition}' is not supported. Supported editions are: ${PMV_PPD_ISO_EDITIONS.join(", ")}.`,
-    );
+  const { edition = PMV_PPD_ISO_DEFAULT_EDITION, ...rest } = kwargs;
+  assert_pmv_ppd_iso_edition(edition);
   return pmv_ppd(tdb, tr, vr, rh, met, clo, wme, "ISO", rest);
 }
 

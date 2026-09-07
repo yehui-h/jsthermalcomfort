@@ -12,7 +12,9 @@ import {
   assertNumber,
   validateInputs,
   check_standard_compliance,
+  range_violations,
 } from "../../src/utilities/utilities";
+import { iso7730PmvLimits } from "../../src/reference/limits";
 
 const DEFAULT_TOLERANCE = 0.01;
 
@@ -504,5 +506,35 @@ describe("check_standard_compliance", () => {
       });
       expect(warnings.length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe("range_violations", () => {
+  it("returns the table's own row objects, in the caller's key order", () => {
+    const rows = range_violations(
+      { tdb: 45, tr: 25, v: 1.5, met: 1.2, clo: 0.5 },
+      iso7730PmvLimits,
+    );
+    const tdbRow = iso7730PmvLimits.find((row) => row.quantity.key === "tdb");
+    const vRow = iso7730PmvLimits.find(
+      (row) => row.quantity.key === "v" && row.role === "input",
+    );
+    expect(rows).toEqual([tdbRow, vRow]);
+    expect(rows[0]).toBe(tdbRow);
+  });
+
+  it("ignores non-numeric fields", () => {
+    const rows = range_violations(
+      { tdb: 25, tr: 25, v: 0.1, met: 1.2, clo: 0.5, airspeed_control: false },
+      iso7730PmvLimits,
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it("is what check_standard_compliance's sentences come from", () => {
+    const kwargs = { tdb: 45, tr: 45, v: 0.1, met: 0.5, clo: 0.5 };
+    expect(check_standard_compliance("ISO", kwargs)).toEqual(
+      range_violations(kwargs, iso7730PmvLimits).map((row) => row.warning),
+    );
   });
 });

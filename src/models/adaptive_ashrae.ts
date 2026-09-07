@@ -1,16 +1,16 @@
 import { adaptiveAshraeOffsets } from "../reference/offsets.js";
 import { ashrae55AdaptiveLimits } from "../reference/limits.js";
 import { standards } from "../reference/standards.js";
-import { quantities } from "../io/quantity.js";
 import { operative_tmp } from "../psychrometrics/operative_tmp.js";
 import {
   UNIT_SYSTEMS,
-  check_standard_compliance,
+  range_violations,
   round,
   units_converter,
   validateInputs,
 } from "../utilities/utilities.js";
 import { get_ce } from "./adaptive_en.js";
+import type { ApplicabilityLimit } from "../reference/limits.js";
 import type { UnitSystem, ValidationSchema } from "../utilities/utilities.js";
 
 /**
@@ -118,9 +118,10 @@ export function adaptive_ashrae(
   limit_inputs = true,
   round_output = true,
 ): AdaptiveAshraeResult {
-  // Warnings are intentionally dropped here: this function's return shape is
-  // public API. The I/O layer calls the kernel directly to get them.
-  const { warnings, ...result } = adaptive_ashrae_with_warnings(
+  // Violations and warnings are intentionally dropped here: this function's
+  // return shape is public API. The I/O layer calls the kernel directly to get
+  // them.
+  const { violations, warnings, ...result } = adaptive_ashrae_with_warnings(
     tdb,
     tr,
     t_running_mean,
@@ -134,7 +135,8 @@ export function adaptive_ashrae(
 
 /**
  * Identical to {@link adaptive_ashrae}, but also returns the applicability
- * warnings that `adaptive_ashrae` computes and discards.
+ * rows this run broke and the warnings that `adaptive_ashrae` computes and
+ * discards.
  *
  * Internal: not re-exported from `models/index.ts`. Note it adds one message
  * the public function has no equivalent for — an out-of-range running mean
@@ -150,7 +152,10 @@ export function adaptive_ashrae_with_warnings(
   units: UnitSystem = "SI",
   limit_inputs = true,
   round_output = true,
-): AdaptiveAshraeResult & { warnings: readonly string[] } {
+): AdaptiveAshraeResult & {
+  violations: readonly ApplicabilityLimit[];
+  warnings: readonly string[];
+} {
   validateInputs(
     {
       tdb,
@@ -179,22 +184,14 @@ export function adaptive_ashrae_with_warnings(
   // Relation between comfort and outdoor temperature
   let t_cmf = 0.31 * t_running_mean + 17.8;
 
-  // Computed unconditionally: `check_standard_compliance` is pure, and the
-  // I/O layer needs the messages even when limit_inputs is false. The
-  // decision to NaN the result stays gated on limit_inputs exactly as before.
-  const warnings: string[] = check_standard_compliance(standard, {
-    tdb,
-    tr,
-    v,
-  });
-  // The bounds and the message both come from the table; this is the one row
-  // `check_standard_compliance("ASHRAE", …)` does not cover.
-  const trm = ashrae55AdaptiveLimits.find(
-    ({ quantity }) => quantity === quantities.t_running_mean,
-  )!;
-  if (t_running_mean < trm.min || t_running_mean > trm.max) {
-    warnings.push(trm.warning);
-  }
+  // One pass over the adaptive table, evaluated unconditionally: the I/O layer
+  // needs the rows even when limit_inputs is false, which still gates the
+  // decision to NaN the result.
+  const violations = range_violations(
+    { tdb, tr, v, t_running_mean },
+    ashrae55AdaptiveLimits,
+  );
+  const warnings = violations.map((row) => row.warning);
   if (limit_inputs && warnings.length > 0) t_cmf = NaN;
 
   // The band widths come from the reference table, not from literals repeated
@@ -250,6 +247,7 @@ export function adaptive_ashrae_with_warnings(
     tmp_cmf_90_up,
     acceptability_80,
     acceptability_90,
+    violations,
     warnings,
   };
 }

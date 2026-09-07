@@ -15,6 +15,10 @@ export { round };
 /**
  * Inputs accepted by {@link check_standard_compliance}. Every field is optional:
  * each standard inspects only the ones it constrains.
+ *
+ * `t_running_mean` is constrained by neither PMV table; it is here because
+ * {@link range_violations} takes the same shape, and the two adaptive models
+ * check their running mean through it.
  */
 export interface ComplianceKwargs {
   met?: number;
@@ -23,6 +27,7 @@ export interface ComplianceKwargs {
   tr?: number;
   v?: number;
   vr?: number;
+  t_running_mean?: number;
   v_limited?: number;
   airspeed_control?: boolean;
 }
@@ -78,17 +83,24 @@ export function check_standard_compliance(
 }
 
 /**
- * Warns for every argument that falls outside its row in `limits`.
+ * The `role: "input"` rows of `limits` that the numeric fields of `kwargs`
+ * fall outside, as the table's own objects.
  *
  * The arguments are iterated, not the table: the caller's key order is what
- * decides the order of the returned messages, and `tests/baseline.test.ts`
- * compares those arrays positionally.
+ * decides the order of the returned rows, and `tests/baseline.test.ts`
+ * compares the sentences derived from them positionally.
+ *
+ * Not in upstream, which has no published limit tables to return rows from.
+ * A consumer rendering applicability needs the row and its `role`, not a
+ * sentence, so this is the primitive and `_range_warnings` maps over it.
+ *
+ * @internal
  */
-function _range_warnings(
+export function range_violations(
   kwargs: ComplianceKwargs,
   limits: readonly ApplicabilityLimit[],
-): string[] {
-  const warnings: string[] = [];
+): ApplicabilityLimit[] {
+  const violations: ApplicabilityLimit[] = [];
   for (const [key, value] of Object.entries(kwargs)) {
     // Only numeric fields are range-checked here; `airspeed_control` is a
     // boolean and is handled by the cross-field checks in the callers.
@@ -105,9 +117,17 @@ function _range_warnings(
       (row) => row.quantity === quantity && row.role === "input",
     );
     if (limit === undefined) continue;
-    if (value < limit.min || value > limit.max) warnings.push(limit.warning);
+    if (value < limit.min || value > limit.max) violations.push(limit);
   }
-  return warnings;
+  return violations;
+}
+
+/** The sentences of {@link range_violations}, for the string-returning checks. */
+function _range_warnings(
+  kwargs: ComplianceKwargs,
+  limits: readonly ApplicabilityLimit[],
+): string[] {
+  return range_violations(kwargs, limits).map((row) => row.warning);
 }
 
 /**

@@ -2,6 +2,7 @@ import {
   ComplianceCheck,
   UNIT_SYSTEMS,
   check_standard_compliance,
+  range_violations,
   round,
   units_converter,
   validateInputs,
@@ -9,9 +10,12 @@ import {
 import type { UnitSystem, ValidationSchema } from "../utilities/utilities.js";
 import { antoine } from "../psychrometrics/antoine.js";
 import {
+  ashrae55PmvLimits,
+  iso7730PmvLimits,
   iso7730PmvRangeLimit,
   iso7730VapourPressureLimit,
 } from "../reference/limits.js";
+import type { ApplicabilityLimit } from "../reference/limits.js";
 import { cooling_effect } from "./cooling_effect.js";
 
 /**
@@ -220,6 +224,15 @@ export function pmv_ppd(
  * Identical to `pmv_ppd`, but also returns the applicability warnings
  * that `pmv_ppd` computes and discards.
  *
+ * `violations` is the same information as the rows of the published limit
+ * tables rather than as sentences: input rows first, then ISO's derived
+ * vapour-pressure and output PMV rows. Unlike upstream, those two are
+ * evaluated whether or not `limit_inputs` is set — only the NaN-ing is gated.
+ * `warnings` is `violations` spelled out, plus the one ASHRAE cross-field rule
+ * that has no row. The output PMV row is judged on the unrounded value, as
+ * upstream does, so a PMV that rounds to 2.00 can carry the ±2 violation — the
+ * same rule `PmvPpdAshraeOutputs` applies to its compliance.
+ *
  * Also returns `pmv_unrounded`: ASHRAE 55 compliance is evaluated on the raw
  * PMV, before `round_output` rounds it (pythermalcomfort computes
  * `compliance` above its `np.round` call), so the I/O layer needs the value
@@ -244,6 +257,7 @@ export function pmv_ppd_with_warnings(
 ): PmvPpdResult & {
   pmv_unrounded: number;
   warnings: readonly string[];
+  violations: readonly ApplicabilityLimit[];
 } {
   const default_kwargs: Required<PmvPpdKwargs> = {
     units: "SI",
@@ -278,14 +292,24 @@ export function pmv_ppd_with_warnings(
     ({ tdb, tr, vr } = units_converter({ tdb, tr, vr }, "IP"));
   }
 
-  const compliance_warnings = check_standard_compliance(standard, {
+  // One kwargs object for both checks, so the sentences and the rows come out
+  // in the same order.
+  const compliance_kwargs = {
     tdb,
     tr,
     v: vr,
     met,
     clo,
     airspeed_control: resolved.airspeed_control,
-  });
+  };
+  const compliance_warnings = check_standard_compliance(
+    standard,
+    compliance_kwargs,
+  );
+  const compliance_violations = range_violations(
+    compliance_kwargs,
+    standard === "ISO" ? iso7730PmvLimits : ashrae55PmvLimits,
+  );
   let ce = 0;
   if (standard === "ASHRAE") {
     //if v_r is higher than 0.1 follow methodology ASHRAE Appendix H, H3
@@ -302,46 +326,54 @@ export function pmv_ppd_with_warnings(
     95.0 *
       Math.exp(-0.03353 * Math.pow(pmv, 4.0) - 0.2179 * Math.pow(pmv, 2.0));
 
-  // Checks that inputs are within the bounds accepted by the model if not return NaN
-  if (resolved.limit_inputs) {
-    // ISO 7730 Clause 4 bounds two more quantities that `check_standard_compliance`
-    // cannot see, because neither is an argument: the vapour pressure the model
-    // derives, and the PMV it returns. Upstream checks both inline in
-    // `pythermalcomfort/models/pmv_ppd_iso.py`; here the bounds are read from
-    // the published table so there is still one copy of each number. ASHRAE 55
-    // has neither bound, so both apply to ISO only.
-    const iso_only_warnings: string[] = [];
-    if (standard === "ISO") {
-      const pa = rh * 10 * antoine(tdb);
-      if (
-        pa < iso7730VapourPressureLimit.min ||
-        pa > iso7730VapourPressureLimit.max
-      )
-        iso_only_warnings.push(iso7730VapourPressureLimit.warning);
-      if (!(pmv >= iso7730PmvRangeLimit.min && pmv <= iso7730PmvRangeLimit.max))
-        iso_only_warnings.push(iso7730PmvRangeLimit.warning);
-    }
-
+  // ISO 7730 Clause 4 bounds two more quantities that `check_standard_compliance`
+  // cannot see, because neither is an argument: the vapour pressure the model
+  // derives, and the PMV it returns. Upstream checks both inline in
+  // `pythermalcomfort/models/pmv_ppd_iso.py`, and only under `limit_inputs`;
+  // here they are evaluated always, because a consumer that asked for numbers
+  // rather than NaN still needs to know which rows the numbers broke
+  // (2026-09-07). The bounds are read from the published table so there is
+  // still one copy of each number. ASHRAE 55 has neither bound, so both apply
+  // to ISO only.
+  const iso_only_violations: ApplicabilityLimit[] = [];
+  if (standard === "ISO") {
+    const pa = rh * 10 * antoine(tdb);
     if (
-      isNaN(pmv) ||
-      compliance_warnings.length > 0 ||
-      iso_only_warnings.length > 0
-    ) {
-      pmv = NaN;
-      ppd = NaN;
-    }
-    compliance_warnings.push(...iso_only_warnings);
+      pa < iso7730VapourPressureLimit.min ||
+      pa > iso7730VapourPressureLimit.max
+    )
+      iso_only_violations.push(iso7730VapourPressureLimit);
+    if (!(pmv >= iso7730PmvRangeLimit.min && pmv <= iso7730PmvRangeLimit.max))
+      iso_only_violations.push(iso7730PmvRangeLimit);
   }
+
+  // Checks that inputs are within the bounds accepted by the model if not return NaN
+  if (
+    resolved.limit_inputs &&
+    (isNaN(pmv) ||
+      compliance_warnings.length > 0 ||
+      iso_only_violations.length > 0)
+  ) {
+    pmv = NaN;
+    ppd = NaN;
+  }
+
+  const violations = [...compliance_violations, ...iso_only_violations];
+  const warnings = [
+    ...compliance_warnings,
+    ...iso_only_violations.map((row) => row.warning),
+  ];
 
   if (resolved.round_output) {
     return {
       pmv: round(pmv, 2),
       ppd: round(ppd, 1),
       pmv_unrounded: pmv,
-      warnings: compliance_warnings,
+      warnings,
+      violations,
     };
   }
-  return { pmv, ppd, pmv_unrounded: pmv, warnings: compliance_warnings };
+  return { pmv, ppd, pmv_unrounded: pmv, warnings, violations };
 }
 
 /**

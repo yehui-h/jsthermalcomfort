@@ -1,7 +1,16 @@
 // Validation data loaded from the shared validation-data-comfort-models
 // repository via the same URL-based mechanism as the original pmv_ppd.test.js.
 import { describe, expect, test } from "vitest";
-import { pmv_ppd_iso } from "../../src/models/pmv_ppd_iso.js";
+import {
+  PMV_PPD_ISO_DEFAULT_EDITION,
+  pmv_ppd_iso,
+} from "../../src/models/pmv_ppd_iso.js";
+import { pmv_ppd_with_warnings } from "../../src/models/pmv_ppd.js";
+import {
+  iso7730PmvLimits,
+  iso7730PmvRangeLimit,
+  iso7730VapourPressureLimit,
+} from "../../src/reference/limits.js";
 import { testDataUrls } from "./comftest";
 import {
   assertNonEmptyRows,
@@ -111,5 +120,79 @@ describe("pmv_ppd_iso edition", () => {
 
   test("publishes the editions it accepts, newest last", () => {
     expect([...pmv_ppd_iso.editions]).toEqual(["7730-2005", "7730-2025"]);
+  });
+
+  test("publishes its default edition as the newest one", () => {
+    expect(pmv_ppd_iso.editions.at(-1)).toBe(PMV_PPD_ISO_DEFAULT_EDITION);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Applicability violations reported as rows
+// ---------------------------------------------------------------------------
+describe("pmv_ppd_with_warnings violations", () => {
+  const inRange = [25, 25, 0.1, 50, 1.2, 0.5];
+
+  test("is empty when every row holds", () => {
+    const out = pmv_ppd_with_warnings(...inRange, 0, "ISO");
+    expect(out.violations).toEqual([]);
+    expect(out.warnings).toEqual([]);
+  });
+
+  test("returns the input row object the argument broke", () => {
+    const out = pmv_ppd_with_warnings(45, 25, 0.1, 50, 1.2, 0.5, 0, "ISO");
+    const tdbRow = iso7730PmvLimits.find((row) => row.quantity.key === "tdb");
+    expect(out.violations[0]).toBe(tdbRow);
+    expect(out.warnings).toEqual(out.violations.map((row) => row.warning));
+  });
+
+  test("reports the derived vapour-pressure row even with limit_inputs false", () => {
+    // tdb 30 is the ISO upper bound, inclusive, so no input row fires; at
+    // rh 95 the derived pa is about 4030 Pa, beyond the 2700 Pa bound. clo is
+    // 0.3 rather than 0.5 to keep the derived row the only one that fires:
+    // 30 °C at 0.5 clo produces a PMV of 2.03, which would break the output
+    // row too and stop this test isolating the derived one.
+    const out = pmv_ppd_with_warnings(30, 30, 0.1, 95, 1.2, 0.3, 0, "ISO", {
+      limit_inputs: false,
+    });
+    expect(out.violations).toHaveLength(1);
+    expect(out.violations[0]).toBe(iso7730VapourPressureLimit);
+    expect(out.warnings).toEqual([iso7730VapourPressureLimit.warning]);
+    expect(Number.isFinite(out.pmv)).toBe(true);
+  });
+
+  test("reports the output PMV row and still returns the number", () => {
+    // Every argument is inside its row; the PMV they produce is not.
+    const out = pmv_ppd_with_warnings(30, 40, 0.1, 50, 4, 2, 0, "ISO", {
+      limit_inputs: false,
+    });
+    expect(out.violations).toEqual([iso7730PmvRangeLimit]);
+    expect(out.pmv).toBeGreaterThan(2);
+  });
+
+  test("keeps NaN-ing gated by limit_inputs", () => {
+    const out = pmv_ppd_with_warnings(30, 40, 0.1, 50, 4, 2, 0, "ISO");
+    expect(out.violations).toEqual([iso7730PmvRangeLimit]);
+    expect(out.pmv).toBeNaN();
+  });
+
+  test("orders input rows before the ISO-only rows", () => {
+    const out = pmv_ppd_with_warnings(45, 45, 0.1, 95, 1.2, 0.5, 0, "ISO", {
+      limit_inputs: false,
+    });
+    expect(out.violations.map((row) => row.role)).toEqual([
+      "input",
+      "input",
+      "derived",
+      "output",
+    ]);
+  });
+
+  test("ASHRAE has no derived or output rows", () => {
+    const out = pmv_ppd_with_warnings(30, 40, 0.1, 95, 4, 1.6, 0, "ASHRAE", {
+      limit_inputs: false,
+    });
+    expect(out.violations.length).toBeGreaterThan(0);
+    expect(out.violations.every((row) => row.role === "input")).toBe(true);
   });
 });

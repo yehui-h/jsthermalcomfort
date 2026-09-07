@@ -18,6 +18,10 @@ import {
 import {
   adaptiveAshraeOffsets,
   adaptiveEnOffsets,
+  ashrae55AdaptiveLimits,
+  en16798AdaptiveLimits,
+  iso7730PmvLimits,
+  iso7730VapourPressureLimit,
 } from "../src/reference/index.js";
 
 // The I/O layer's contract is that it re-packages rather than recomputes: the
@@ -482,5 +486,84 @@ describe("units", () => {
       "unit",
       "value",
     ]);
+  });
+});
+
+describe("violations", () => {
+  const inRange = { tdb: 25, tr: 25, vr: 0.1, rh: 50, met: 1.2, clo: 0.5 };
+
+  it("is empty for an in-range run, on every outcome class", () => {
+    expect(pmvPpdIso(inRange).violations).toEqual([]);
+    expect(pmvPpdAshrae(inRange).violations).toEqual([]);
+    expect(
+      adaptiveAshrae({ tdb: 25, tr: 25, t_running_mean: 20, v: 0.1 })
+        .violations,
+    ).toEqual([]);
+    expect(
+      adaptiveEn({ tdb: 25, tr: 25, t_running_mean: 20, v: 0.1 }).violations,
+    ).toEqual([]);
+  });
+
+  it("hands back the table row itself, so a consumer can read its role", () => {
+    const out = pmvPpdIso({ ...inRange, tdb: 45 });
+    const tdbRow = iso7730PmvLimits.find((row) => row.quantity.key === "tdb");
+    expect(out.violations[0]).toBe(tdbRow);
+  });
+
+  it("reports the derived row with limit_inputs false", () => {
+    // clo 0.3 keeps PMV inside ±2 so only the derived row fires.
+    const derived = pmvPpdIso({
+      ...inRange,
+      tdb: 30,
+      tr: 30,
+      rh: 95,
+      clo: 0.3,
+      limit_inputs: false,
+    });
+    expect(derived.violations).toHaveLength(1);
+    expect(derived.violations[0]).toBe(iso7730VapourPressureLimit);
+  });
+
+  it("keeps warnings as the sentences of violations", () => {
+    const out = pmvPpdIso({ ...inRange, tdb: 45, rh: 95, limit_inputs: false });
+    // Guards the equality below against passing on two empty arrays.
+    expect(out.violations.length).toBeGreaterThan(0);
+    expect(out.warnings).toEqual(out.violations.map((row) => row.warning));
+  });
+
+  it("adaptive models return their running-mean row", () => {
+    const outside = { tdb: 25, tr: 25, t_running_mean: 9, v: 0.1 };
+    const ashraeRow = ashrae55AdaptiveLimits.find(
+      (row) => row.quantity.key === "t_running_mean",
+    );
+    expect(adaptiveAshrae(outside).violations[0]).toBe(ashraeRow);
+    expect(adaptiveEn(outside).violations).toEqual(en16798AdaptiveLimits);
+    expect(adaptiveEn(outside).warnings).toEqual(
+      en16798AdaptiveLimits.map((row) => row.warning),
+    );
+    expect(adaptiveEn({ ...outside, t_running_mean: 20 }).violations).toEqual(
+      [],
+    );
+  });
+});
+
+describe("edition", () => {
+  const inputs = { tdb: 25, tr: 25, vr: 0.1, rh: 50, met: 1.2, clo: 0.5 };
+
+  it("defaults to the newest edition and echoes it", () => {
+    expect(pmvPpdIso(inputs).edition).toBe("7730-2025");
+    expect(pmvPpdIso(inputs).inputs.edition).toBe("7730-2025");
+  });
+
+  it("echoes a pinned edition and changes no number", () => {
+    const pinned = pmvPpdIso({ ...inputs, edition: "7730-2005" });
+    expect(pinned.edition).toBe("7730-2005");
+    expect(pinned.result).toEqual(pmvPpdIso(inputs).result);
+  });
+
+  it("rejects an edition the model does not implement", () => {
+    expect(() =>
+      pmvPpdIso({ ...inputs, edition: "7730-1994" as never }),
+    ).toThrow(/7730-2005, 7730-2025/);
   });
 });

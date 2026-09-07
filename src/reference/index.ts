@@ -29,6 +29,7 @@ export {
   iso7730PmvRangeLimit,
   ashrae55PmvLimits,
   ashrae55AdaptiveLimits,
+  en16798AdaptiveLimits,
 } from "./limits.js";
 export type { ApplicabilityLimit, LimitRole } from "./limits.js";
 export { standards } from "./standards.js";

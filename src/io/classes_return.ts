@@ -2,27 +2,33 @@ import { adaptive_ashrae_with_warnings } from "../models/adaptive_ashrae.js";
 import { adaptive_en } from "../models/adaptive_en.js";
 import { pmv_ppd_with_warnings } from "../models/pmv_ppd.js";
 import { pmv_ppd_ashrae } from "../models/pmv_ppd_ashrae.js";
-import { pmv_ppd_iso } from "../models/pmv_ppd_iso.js";
+import {
+  assert_pmv_ppd_iso_edition,
+  pmv_ppd_iso,
+} from "../models/pmv_ppd_iso.js";
 import {
   adaptiveAshraeOffsets,
   adaptiveEnOffsets,
 } from "../reference/offsets.js";
-import { units_converter } from "../utilities/utilities.js";
+import { en16798AdaptiveLimits } from "../reference/limits.js";
+import { range_violations, units_converter } from "../utilities/utilities.js";
 import {
   AdaptiveInputs,
   PmvPpdAshraeInputs,
-  PmvPpdInputs,
+  PmvPpdIsoInputs,
 } from "./classes_input.js";
 import { quantities, unitFor } from "./quantity.js";
 import type { ComfortInterval, Measure } from "./measure.js";
 import type { AdaptiveAshraeResult } from "../models/adaptive_ashrae.js";
 import type { AdaptiveEnResult } from "../models/adaptive_en.js";
 import type { PmvPpdResult } from "../models/pmv_ppd.js";
+import type { PmvPpdIsoEdition } from "../models/pmv_ppd_iso.js";
 import type {
   AdaptiveInit,
   PmvPpdAshraeInit,
-  PmvPpdInit,
+  PmvPpdIsoInit,
 } from "./classes_input.js";
+import type { ApplicabilityLimit } from "../reference/limits.js";
 import type { AdaptiveOffset } from "../reference/offsets.js";
 
 // Named once, from the same tables the models compute their bounds with, so a
@@ -49,7 +55,21 @@ export interface Outcome<TInputs = unknown, TResult = unknown> {
   readonly inputs: TInputs;
   /** Exactly what the model function returns for these inputs. */
   readonly result: TResult;
-  /** Why the result is NaN, when it is. Empty when every input was in range. */
+  /**
+   * The applicability rows this run broke, as the published table's own
+   * objects — so a consumer can dispatch on `role` and never compares a
+   * sentence. Evaluated whether or not `limit_inputs` is set; that switch only
+   * decides whether `result` is NaN. Input rows first, then any derived or
+   * output rows. Empty when every row held.
+   *
+   * Not in upstream, which has no `io` layer and returns NaN without saying
+   * which bound was crossed (2026-09-07).
+   */
+  readonly violations: readonly ApplicabilityLimit[];
+  /**
+   * `violations` as sentences, in the same order, plus the one ASHRAE
+   * cross-field air-speed rule that has no row. Empty when every row held.
+   */
   readonly warnings: readonly string[];
   toMeasures(): readonly Measure[];
 }
@@ -81,8 +101,11 @@ function bandFrom(
  *
  * @public
  */
-export class PmvPpdIsoOutputs implements Outcome<PmvPpdInputs, PmvPpdResult> {
-  readonly inputs: PmvPpdInputs;
+export class PmvPpdIsoOutputs implements Outcome<
+  PmvPpdIsoInputs,
+  PmvPpdResult
+> {
+  readonly inputs: PmvPpdIsoInputs;
   /** `{ pmv, ppd }`, as `pmv_ppd_iso` returns it. */
   readonly result: PmvPpdResult;
   /**
@@ -90,32 +113,39 @@ export class PmvPpdIsoOutputs implements Outcome<PmvPpdInputs, PmvPpdResult> {
    * falls outside the scale — NaN included.
    */
   readonly tsv: string | undefined;
+  /** The edition this result is reported under; `inputs.edition`, echoed. */
+  readonly edition: PmvPpdIsoEdition;
+  readonly violations: readonly ApplicabilityLimit[];
   readonly warnings: readonly string[];
 
-  constructor(inputs: PmvPpdInputs) {
+  constructor(inputs: PmvPpdIsoInputs) {
     // The kernel rather than pmv_ppd_iso(): same arithmetic, same rounding,
-    // but it also hands back the applicability warnings the public function
-    // discards. What is left after taking those off is the public return.
-    const { warnings, pmv_unrounded, ...result } = pmv_ppd_with_warnings(
-      inputs.tdb,
-      inputs.tr,
-      inputs.vr,
-      inputs.rh,
-      inputs.met,
-      inputs.clo,
-      inputs.wme,
-      "ISO",
-      {
-        units: inputs.units,
-        limit_inputs: inputs.limit_inputs,
-        round_output: inputs.round_output,
-      },
-    );
+    // but it also hands back the applicability rows the public function
+    // discards. That bypasses the edition check, so it is applied here.
+    assert_pmv_ppd_iso_edition(inputs.edition);
+    const { warnings, violations, pmv_unrounded, ...result } =
+      pmv_ppd_with_warnings(
+        inputs.tdb,
+        inputs.tr,
+        inputs.vr,
+        inputs.rh,
+        inputs.met,
+        inputs.clo,
+        inputs.wme,
+        "ISO",
+        {
+          units: inputs.units,
+          limit_inputs: inputs.limit_inputs,
+          round_output: inputs.round_output,
+        },
+      );
     this.inputs = inputs;
     this.result = result;
     // Classified from the returned PMV, so rounding is applied first — the
     // order pythermalcomfort uses (`mapping()` runs after `np.round`).
     this.tsv = pmv_ppd_iso.tsv.labelFor(result.pmv);
+    this.edition = inputs.edition;
+    this.violations = violations;
     this.warnings = warnings;
   }
 
@@ -165,25 +195,27 @@ export class PmvPpdAshraeOutputs implements Outcome<
    * rather than a verdict.
    */
   readonly compliance: boolean | undefined;
+  readonly violations: readonly ApplicabilityLimit[];
   readonly warnings: readonly string[];
 
   constructor(inputs: PmvPpdAshraeInputs) {
-    const { warnings, pmv_unrounded, ...result } = pmv_ppd_with_warnings(
-      inputs.tdb,
-      inputs.tr,
-      inputs.vr,
-      inputs.rh,
-      inputs.met,
-      inputs.clo,
-      inputs.wme,
-      "ASHRAE",
-      {
-        units: inputs.units,
-        limit_inputs: inputs.limit_inputs,
-        airspeed_control: inputs.airspeed_control,
-        round_output: inputs.round_output,
-      },
-    );
+    const { warnings, violations, pmv_unrounded, ...result } =
+      pmv_ppd_with_warnings(
+        inputs.tdb,
+        inputs.tr,
+        inputs.vr,
+        inputs.rh,
+        inputs.met,
+        inputs.clo,
+        inputs.wme,
+        "ASHRAE",
+        {
+          units: inputs.units,
+          limit_inputs: inputs.limit_inputs,
+          airspeed_control: inputs.airspeed_control,
+          round_output: inputs.round_output,
+        },
+      );
     this.inputs = inputs;
     this.result = result;
     this.tsv = pmv_ppd_ashrae.tsv.labelFor(result.pmv);
@@ -193,6 +225,7 @@ export class PmvPpdAshraeOutputs implements Outcome<
     this.compliance = Number.isNaN(pmv_unrounded)
       ? undefined
       : pmv_ppd_ashrae.compliance.contains(pmv_unrounded);
+    this.violations = violations;
     this.warnings = warnings;
   }
 
@@ -244,10 +277,14 @@ export class AdaptiveAshraeOutputs implements Outcome<
   readonly inputs: AdaptiveInputs;
   /** The comfort temperature, bounds and flags, as `adaptive_ashrae` returns them. */
   readonly result: AdaptiveAshraeResult;
+  readonly violations: readonly ApplicabilityLimit[];
   readonly warnings: readonly string[];
 
   constructor(inputs: AdaptiveInputs) {
-    const { warnings, ...result } = adaptive_ashrae_with_warnings(
+    // The kernel rather than adaptive_ashrae(): same arithmetic, same
+    // rounding, but it also hands back the applicability rows the public
+    // function discards.
+    const { violations, warnings, ...result } = adaptive_ashrae_with_warnings(
       inputs.tdb,
       inputs.tr,
       inputs.t_running_mean,
@@ -258,6 +295,7 @@ export class AdaptiveAshraeOutputs implements Outcome<
     );
     this.inputs = inputs;
     this.result = result;
+    this.violations = violations;
     this.warnings = warnings;
   }
 
@@ -302,6 +340,7 @@ export class AdaptiveEnOutputs implements Outcome<
   readonly inputs: AdaptiveInputs;
   /** The comfort temperature, bounds and flags, as `adaptive_en` returns them. */
   readonly result: AdaptiveEnResult;
+  readonly violations: readonly ApplicabilityLimit[];
   readonly warnings: readonly string[];
 
   constructor(inputs: AdaptiveInputs) {
@@ -315,7 +354,8 @@ export class AdaptiveEnOutputs implements Outcome<
       inputs.limit_inputs,
       inputs.round_output,
     );
-    this.warnings = adaptiveEnWarnings(inputs);
+    this.violations = adaptiveEnViolations(inputs);
+    this.warnings = this.violations.map((row) => row.warning);
   }
 
   /** One measure — the comfort temperature — carrying all three categories. */
@@ -349,27 +389,21 @@ export class AdaptiveEnOutputs implements Outcome<
 }
 
 /**
- * The one applicability check `adaptive_en` performs, restated as a message.
- *
- * Computed here rather than inside the model: unlike `adaptive_ashrae` and
- * `pmv_ppd`, `adaptive_en` is a verbatim port kept auditable against
- * jsthermalcomfort 1.4.0, so it grows no kernel of its own.
- *
- * The bound is 33.5 °C, not the 30 °C the model's documentation quotes.
- * pythermalcomfort has the same split — `adaptive_en.py` documents 30 and
- * tests `valid_range(t_running_mean, (10.0, 33.5))` — and the code is what
- * decides the result.
+ * ponytail: re-evaluates the row `adaptive_en` also checks, gated differently
+ * (the model only under `limit_inputs`, this always); fold into an
+ * `adaptive_en_with_warnings` the moment a second consumer needs the rows.
  */
-function adaptiveEnWarnings(inputs: AdaptiveInputs): readonly string[] {
-  const trm =
+function adaptiveEnViolations(
+  inputs: AdaptiveInputs,
+): readonly ApplicabilityLimit[] {
+  // The rows are in SI, so IP inputs are converted first — the same first step
+  // `adaptive_en` takes.
+  const t_running_mean =
     inputs.units === "IP"
       ? units_converter({ t_running_mean: inputs.t_running_mean })
           .t_running_mean
       : inputs.t_running_mean;
-  if (trm >= 10.0 && trm <= 33.5) return [];
-  return [
-    "EN running mean outdoor temperature applicability limits between 10.0 and 33.5 °C",
-  ];
+  return range_violations({ t_running_mean }, en16798AdaptiveLimits);
 }
 
 /**
@@ -377,8 +411,8 @@ function adaptiveEnWarnings(inputs: AdaptiveInputs): readonly string[] {
  *
  * @public
  */
-export function pmvPpdIso(inputs: PmvPpdInit): PmvPpdIsoOutputs {
-  return new PmvPpdIsoOutputs(new PmvPpdInputs(inputs));
+export function pmvPpdIso(inputs: PmvPpdIsoInit): PmvPpdIsoOutputs {
+  return new PmvPpdIsoOutputs(new PmvPpdIsoInputs(inputs));
 }
 
 /**

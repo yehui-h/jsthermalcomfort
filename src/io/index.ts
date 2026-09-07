@@ -28,12 +28,14 @@
 export {
   BaseInputs,
   PmvPpdInputs,
+  PmvPpdIsoInputs,
   PmvPpdAshraeInputs,
   AdaptiveInputs,
 } from "./classes_input.js";
 export type {
   BaseInputsInit,
   PmvPpdInit,
+  PmvPpdIsoInit,
   PmvPpdAshraeInit,
   AdaptiveInit,
 } from "./classes_input.js";

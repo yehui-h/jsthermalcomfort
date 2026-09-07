@@ -3,6 +3,7 @@ import {
   adaptiveCoolingEffectSteps,
   adaptiveEnOffsets,
 } from "../reference/offsets.js";
+import { en16798AdaptiveLimits } from "../reference/limits.js";
 import { standards } from "../reference/standards.js";
 import { operative_tmp } from "../psychrometrics/operative_tmp.js";
 import {
@@ -145,7 +146,13 @@ export function adaptive_en(
   let t_cmf = 0.33 * t_running_mean + 18.8;
 
   if (limit_inputs) {
-    const trm_valid = t_running_mean >= 10.0 && t_running_mean <= 33.5;
+    // The bound comes from the published row, not from literals repeated here:
+    // `en16798AdaptiveLimits` is what `adaptive_en.limits` publishes and what
+    // the I/O layer turns into a sentence, so the check and the message cannot
+    // disagree. Inclusive at both ends, as `ApplicabilityLimit` defines.
+    const [runningMeanLimit] = en16798AdaptiveLimits;
+    const { min, max } = runningMeanLimit!;
+    const trm_valid = t_running_mean >= min && t_running_mean <= max;
     if (!trm_valid) t_cmf = NaN;
   }
 
@@ -249,6 +256,6 @@ adaptive_en.description =
   "Adaptive comfort temperature and category I/II/III ranges per EN 16798-1.";
 /** Offsets from `tmp_cmf`. Asymmetric and nested: I \u2282 II \u2282 III. */
 adaptive_en.offsets = adaptiveEnOffsets;
-// No `.limits`: EN 16798-1 has no applicability table in this package —
-// `adaptive_en` calls no compliance check at all.
+/** The ranges this model NaNs outside of: the running mean, and only it. */
+adaptive_en.limits = en16798AdaptiveLimits;
 adaptive_en.standard = standards.en16798;

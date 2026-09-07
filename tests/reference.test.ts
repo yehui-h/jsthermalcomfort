@@ -16,6 +16,7 @@ import {
   ashrae55AdaptiveLimits,
   ashrae55PmvLimits,
   ashraeThermalSensation,
+  en16798AdaptiveLimits,
   iso7730PmvLimits,
   iso7730PmvRangeLimit,
   iso7730VapourPressureLimit,
@@ -410,6 +411,28 @@ describe("applicability limits", () => {
       );
     }
   });
+
+  it("publishes EN 16798-1's adaptive applicability as one input row", () => {
+    expect(en16798AdaptiveLimits).toHaveLength(1);
+    expect(en16798AdaptiveLimits[0]).toMatchObject({
+      role: "input",
+      min: 10,
+      max: 33.5,
+    });
+    expect(en16798AdaptiveLimits[0]!.quantity).toBe(quantities.t_running_mean);
+  });
+
+  it("checks the EN running mean against that row, not a repeated literal", () => {
+    // Same probe as the loop above, through the model that owns the row:
+    // tmp_cmf is NaN exactly when the running-mean check fires.
+    const nanAt = (t_running_mean: number): boolean =>
+      Number.isNaN(adaptive_en(25, 25, t_running_mean, 0.1).tmp_cmf);
+    const row = en16798AdaptiveLimits[0]!;
+    expect(nanAt(row.min - PROBE)).toBe(true);
+    expect(nanAt(row.max + PROBE)).toBe(true);
+    expect(nanAt(row.min)).toBe(false);
+    expect(nanAt(row.max)).toBe(false);
+  });
 });
 
 describe("standards attached to the model functions", () => {
@@ -426,5 +449,6 @@ describe("standards attached to the model functions", () => {
     expect(pmv_ppd_iso.limits).toBe(iso7730PmvLimits);
     expect(pmv_ppd_ashrae.limits).toBe(ashrae55PmvLimits);
     expect(adaptive_ashrae.limits).toBe(ashrae55AdaptiveLimits);
+    expect(adaptive_en.limits).toBe(en16798AdaptiveLimits);
   });
 });
