@@ -1,5 +1,3 @@
-import fetch from "node-fetch"; // Import node-fetch to support data fetching
-
 /**
  * Drop rows whose `inputs` contain any array-valued field. Pure helper so it
  * can be unit-tested without a network round trip.
