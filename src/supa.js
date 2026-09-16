@@ -38,7 +38,7 @@ export function $reduce(arrays, op, initial) {
   const reduceLength = arrays[0].length;
   if (!arrays.every((a) => a.length === reduceLength)) {
     throw new Error(
-      `cannot $reduce over arrays of different lengths (${a.length} vs ${reduceLength})`,
+      `cannot $reduce over arrays of different lengths (${arrays[1].length} vs ${reduceLength})`,
     );
   }
 
@@ -69,16 +69,4 @@ export function $lerp(length, min, max) {
 
 export function $sum(array) {
   return array.reduce((t, c) => t + c, 0);
-}
-
-export function $max(array, sentinel) {
-  return array.map((array) => (array < sentinel ? sentinel : array));
-}
-
-export function $min(array, sentinel) {
-  return array.map((array) => (array > sentinel ? sentinel : array));
-}
-
-export function $index(array, indicies) {
-  return array.filter((_, i) => indicies.includes(i));
 }

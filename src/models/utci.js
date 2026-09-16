@@ -164,15 +164,6 @@ export function mapping(val) {
 }
 
 /**
- * Maps a temperature array to stress categories.
- * @param {number[]} val
- * @returns {string[]}
- */
-function mapping_arr(val) {
-  return val.map((_v) => mapping(_v));
-}
-
-/**
  * @param {number} t_db
  * @returns {number}
  */
