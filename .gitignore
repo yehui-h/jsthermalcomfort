@@ -6,7 +6,10 @@
 /lib
 /tmp
 /out-tsc
-/docs
+# generated documentation (CI builds and deploys to gh-pages)
+/docs/*
+!/docs/examples/
+!/docs/examples/**
 
 # Runtime data
 pids
