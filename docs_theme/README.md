@@ -1,15 +1,13 @@
-# the default theme
+# documentation.js theme
 
-![](screenshot.png)
+Custom [documentation.js](https://github.com/documentationjs/documentation) theme for jsthermalcomfort.
 
-This is the default theme for [documentationjs](https://github.com/documentationjs):
-it consists of underscore templates and a few assets: a [highlight.js](https://highlightjs.org/)
-theme and [basscss](https://basscss.com/) as a basic CSS framework.
+The live site uses a PyData Sphinx-inspired layout (`index.ejs` plus CSS/JS under `assets/`). GitHub Actions runs `npm run docs` and deploys the HTML to the `gh-pages` branch. Generated output in `docs/` is not committed, except for the hand-written demos in `docs/examples/`.
 
-This is bundled by default in documentation: it is the default theme.
+## Layout
 
-The contents are the following:
-
-* `index._`, the main template that defines the document structure
-* `section._`, a partial used to render each chunk of documentation
-* `assets/*`, any assets, including CSS & JS
+- `index.ejs` — page shell (navbar, sidebars, search)
+- `section.ejs`, `section_list.ejs`, `note.ejs`, `paramProperty.ejs` — documentation partials
+- `index.js` — theme entry: partitions JSDoc comments and renders pages
+- `*.md` — static pages (overview, installation, contributing, …)
+- `assets/` — CSS, JS, and images copied into the generated site
