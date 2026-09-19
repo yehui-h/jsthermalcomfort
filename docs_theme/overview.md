@@ -29,7 +29,6 @@ npm install jsthermalcomfort
 ## Requirements
 
 - Node.js (for server-side usage) or a modern web browser.
-- No external dependencies are required for core functionality.
 
 ## Quick Start
 
@@ -77,7 +76,7 @@ Before submitting a pull request, please ensure:
 - `npm install`: Install dependencies.
 - `npm test`: Run the test suite.
 - `npm run docs`: Generate documentation using JSDocs.
-- `npm run lint`: Check for code quality and formatting issues.
+- `npm run check:format`: Check formatting with Prettier.
 
 ## Where to get help
 
