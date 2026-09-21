@@ -1,4 +1,3 @@
-import { p_sat } from "../psychrometrics/p_sat.js";
 import { t_o } from "../psychrometrics/t_o.js";
 
 /**
