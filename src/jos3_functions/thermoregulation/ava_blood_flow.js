@@ -1,4 +1,3 @@
-import { $average } from "../../supa.js";
 import JOS3Defaults from "../JOS3Defaults.js";
 import { bfb_rate } from "../bfb_rate.js";
 import * as math from "mathjs";

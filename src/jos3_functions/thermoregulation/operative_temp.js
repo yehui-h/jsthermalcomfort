@@ -1,4 +1,3 @@
-import { $map } from "../../supa.js";
 import * as math from "mathjs";
 
 /**
