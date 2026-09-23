@@ -15,6 +15,10 @@
   </head>
   <body style="text-align: center">
     <h1>PHS example</h1>
+    <p>
+      Rectal temperature (°C) at 2.5 met, 0.5 clo, standing. Cells outside
+      the ISO 7933:2023 applicability limits are left blank.
+    </p>
     <h2>V = 0.2</h2>
     <div
       id="heat_map_0"
@@ -39,6 +43,11 @@
         );
       }
 
+      // met is metabolic rate in met (1 met = 58.15 W/m²). ISO 7933 applies
+      // for about 100–450 W (~0.9–4 met on the default body). 55 met fails
+      // that check, so every t_re was NaN. 2.5 met is inside the limit.
+      const met = 2.5;
+
       for (const [index, v] of [0.2, 2.5].entries()) {
         const z = [];
         const tdb_range = range(30, 49);
@@ -46,7 +55,7 @@
         for (const rh of rh_range) {
           z.push(Array.from({ length: 49 - 30 }, () => null));
           for (const tdb of tdb_range) {
-            const result = phs(tdb, tdb, v, rh, 55, 0.5, 2).t_re;
+            const result = phs(tdb, tdb, v, rh, met, 0.5, 2).t_re;
             z[z.length - 1][tdb - 30] = result;
           }
         }
@@ -58,8 +67,8 @@
             y: rh_range,
             type: "heatmap",
             hoverongaps: false,
-            zmin: 36.9,
-            zmax: 59.3,
+            zmin: 37,
+            zmax: 46,
           },
         ];
         Plotly.newPlot(`heat_map_${index}`, heatmap_data, {
