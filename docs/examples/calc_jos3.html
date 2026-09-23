@@ -34,9 +34,62 @@
     </div>
   </body>
   <script type="module">
-    import { JOS3 } from "https://cdn.jsdelivr.net/npm/jsthermalcomfort/lib/esm/models/JOS3.js";
-    //from pythermalcomfort.jos3_functions.utilities import local_clo_typical_ensembles
-    import { local_clo_typical_ensembles } from "https://cdn.jsdelivr.net/npm/jsthermalcomfort/lib/esm/jos3_functions/utilities.js";
+    // /+esm bundles the bare mathjs import so this page can run in a browser.
+    import { JOS3 } from "https://cdn.jsdelivr.net/npm/jsthermalcomfort/lib/esm/models/JOS3.js/+esm";
+
+    // Local clothing insulation [clo] for briefs, socks, undershirt, work
+    // jacket, work pants, and safety shoes. jsthermalcomfort has no
+    // local-ensemble table; clo and v accept an object keyed by body_names.
+    const workwearLocalClo = {
+      head: 0,
+      neck: 0,
+      chest: 1.25,
+      back: 1.39,
+      pelvis: 1.78,
+      left_shoulder: 0.84,
+      left_arm: 0.71,
+      left_hand: 0.08,
+      right_shoulder: 0.84,
+      right_arm: 0.71,
+      right_hand: 0.08,
+      left_thigh: 0.65,
+      left_leg: 0.59,
+      left_foot: 1.12,
+      right_thigh: 0.65,
+      right_leg: 0.59,
+      right_foot: 1.12,
+    };
+
+    const localAirSpeed = {
+      head: 0.2,
+      neck: 0.4,
+      chest: 0.4,
+      back: 0.1,
+      pelvis: 0.1,
+      left_shoulder: 0.4,
+      left_arm: 0.4,
+      left_hand: 0.4,
+      right_shoulder: 0.4,
+      right_arm: 0.4,
+      right_hand: 0.4,
+      left_thigh: 0.1,
+      left_leg: 0.1,
+      left_foot: 0.1,
+      right_thigh: 0.1,
+      right_leg: 0.1,
+      right_foot: 0.1,
+    };
+
+    // cycle_time and per-segment skin temperature are columns of
+    // dict_results(), not getters. With dtime = 60 s, cycle_time is minutes.
+    function skinTemperatureTrace(results, key, name) {
+      return {
+        x: results.cycle_time,
+        y: results[key],
+        mode: "lines",
+        name,
+      };
+    }
 
     let model = new JOS3(1.7, 60, undefined, 30);
     // Set the first phase
@@ -50,11 +103,7 @@
     model.to = 20; // Change only operative temperature
     model.simulate(60); // Additional exposure time = 60 [min]
 
-    let t_skin_mean_trace = {
-      x: model.cycle_time,
-      y: model.t_skin_mean,
-      mode: "lines",
-    }; // Plot time series of mean skin temperature.
+    let results = model.dict_results();
     let layout = {
       xaxis: {
         title: "Time [min]",
@@ -63,7 +112,11 @@
         title: "Mean skin temperature [°C]",
       },
     };
-    Plotly.newPlot("graph1", [t_skin_mean_trace], layout);
+    Plotly.newPlot(
+      "graph1",
+      [skinTemperatureTrace(results, "t_skin_mean", "Mean")],
+      layout,
+    );
 
     // Print the BMR value using the getter
     document.getElementById("example1 bmr").innerHTML = model.bmr;
@@ -93,30 +146,8 @@
     model.tdb = 28; // Air temperature [°C]
     model.tr = 30; // Mean radiant temperature [°C]
     model.rh = 40; // Relative humidity [%]
-    model.v = [
-      0.2, // head
-      0.4, // neck
-      0.4, // chest
-      0.1, // back
-      0.1, // pelvis
-      0.4, // left shoulder
-      0.4, // left arm
-      0.4, // left hand
-      0.4, // right shoulder
-      0.4, // right arm
-      0.4, // right hand
-      0.1, // left thigh
-      0.1, // left leg
-      0.1, // left foot
-      0.1, // right thigh
-      0.1, // right leg
-      0.1, // right foot
-    ];
-
-    model.clo =
-      local_clo_typical_ensembles[
-        "briefs, socks, undershirt, work jacket, work pants, safety shoes"
-      ]["local_body_part"];
+    model.v = localAirSpeed;
+    model.clo = workwearLocalClo;
 
     model.par = 1.2; // Physical activity ratio [-]
     model.posture = "sitting"; // Posture
@@ -129,25 +160,7 @@
 
     // Set the next condition
     model.to = 20; // Change operative temperature
-    model.v = {
-      head: 0.2,
-      neck: 0.4,
-      chest: 0.4,
-      back: 0.1,
-      pelvis: 0.1,
-      left_shoulder: 0.4,
-      left_arm: 0.4,
-      left_hand: 0.4,
-      right_shoulder: 0.4,
-      right_arm: 0.4,
-      right_hand: 0.4,
-      left_thigh: 0.1,
-      left_leg: 0.1,
-      left_foot: 0.1,
-      right_thigh: 0.1,
-      right_leg: 0.1,
-      right_foot: 0.1,
-    };
+    model.v = localAirSpeed;
 
     // Run JOS-3 model again
     model.simulate(
@@ -165,37 +178,24 @@
       60, // Time delta [sec]
     ); // Additional exposure time = 30 [loops] * 60 [sec] = 30 [min]
 
-    // Show the results
-    let t_skin_head_trace = {
-      x: model.cycle_time,
-      y: model.t_skin_head,
-      mode: "lines",
-    };
-    let t_skin_chest_trace = {
-      x: model.cycle_time,
-      y: model.t_skin_chest,
-      mode: "lines",
-    };
-    let t_skin_left_hand_trace = {
-      x: model.cycle_time,
-      y: model.t_skin_left_hand,
-      mode: "lines",
-    };
+    // Show the results. Per-segment series are dict_results() columns
+    // such as t_skin_head, not getters.
+    results = model.dict_results();
     layout = {
       xaxis: {
         title: "Time [min]",
       },
       yaxis: {
-        title: "Mean skin temperature [°C]",
+        title: "Skin temperature [°C]",
       },
     };
     Plotly.newPlot(
       "graph2",
       [
-        t_skin_mean_trace,
-        t_skin_head_trace,
-        t_skin_chest_trace,
-        t_skin_left_hand_trace,
+        skinTemperatureTrace(results, "t_skin_mean", "Mean"),
+        skinTemperatureTrace(results, "t_skin_head", "Head"),
+        skinTemperatureTrace(results, "t_skin_chest", "Chest"),
+        skinTemperatureTrace(results, "t_skin_left_hand", "Left hand"),
       ],
       layout,
     );
