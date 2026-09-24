@@ -30,7 +30,7 @@ import { deepFreeze } from "./modelDocs.js";
  *    0 < vr [m/s] < 2, 1 < met [met] < 4, and 0 < clo [clo] < 1.5.
  *    The ISO 7730 2005 limits are 10 < tdb [°C] < 30, 10 < tr [°C] < 40,
  *    0 < vr [m/s] < 1, 0.8 < met [met] < 4, 0 < clo [clo] < 2, and -2 < PMV < 2.
- * @property { boolean } airspeed_control - This only applies if standard = "ASHRAE".
+ * @property { boolean } airspeed_control - This only applies if standard = "55-2023".
  *
  *    Default is True. By default, it is assumed that the occupant has control over the airspeed.
  *    In this case, the ASHRAE 55 Standard does not impose any airspeed limits.
@@ -168,11 +168,11 @@ export const PMV_PPD_ISO_INFO = deepFreeze({
  * the equation clo = Icl × (0.6 + 0.4/met) The dynamic clothing insulation, clo,
  * can be calculated using the function `clo_dynamic` which is in .utilities.js.
  * @param { number } [wme=0] - external work
- * @param { "ISO"|"ASHRAE" } [standard="ISO"] - comfort standard used for calculation
+ * @param { "7730-2025"|"7730-2005"|"55-2023" } [standard=Standard.iso_7730_2025] - comfort standard used for calculation. Defaults to `Standard.iso_7730_2025` (`"7730-2025"`).
  *
- * · If "ISO", then the ISO Equation is used
+ * · If `"7730-2025"` or `"7730-2005"`, then the ISO Equation is used
  *
- * · If "ASHRAE", then the ASHRAE Equation is used
+ * · If `"55-2023"`, then the ASHRAE Equation is used
  *
  * Note: While the PMV equation is the same for both the ISO and ASHRAE standards, the ASHRAE Standard Use of
  * the PMV model is limited to air speeds below 0.10m/s (20 fpm). When air speeds exceed 0.10 m/s (20 fpm), the comfort
@@ -205,7 +205,13 @@ const PMV_PPD_SCHEMA = {
   met: { type: "number" },
   clo: { type: "number" },
   wme: { type: "number" },
-  standard: { enum: [...Object.values(Standard)] },
+  standard: {
+    enum: [
+      Standard.ashrae_55_2023,
+      Standard.iso_7730_2005,
+      Standard.iso_7730_2025,
+    ],
+  },
   units: { enum: ["SI", "IP"], required: false },
   limit_inputs: { type: "boolean", required: false },
   airspeed_control: { type: "boolean", required: false },

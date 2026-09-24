@@ -560,7 +560,7 @@ function _v_relative_single(v, met) {
  *
  * @param {number} clo - clothing insulation, [clo]
  * @param {number} met - metabolic rate, [met]
- * @param {("ASHRAE" | "ISO")} [standard="ASHRAE"] - If "ASHRAE", uses Equation provided in Section 5.2.2.2 of ASHRAE 55 2020
+ * @param {"55-2023"|"7730-2005"|"7730-2025"} [standard=Standard.ashrae_55_2023] - Defaults to `Standard.ashrae_55_2023` (`"55-2023"`). If `"55-2023"`, uses Equation provided in Section 5.2.2.2 of ASHRAE 55 2020. ISO 7730 ids `"7730-2005"` and `"7730-2025"` are also accepted.
  * @returns {number} dunamic clothing insulation, [clo]
  */
 export function clo_dynamic(clo, met, standard = Standard.ashrae_55_2023) {
