@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # dev-v2 is where next prerelease tags are cut. A merge does not re-fire
+    # pull_request, so push must re-run tests, format, build, and check:types.
+    branches: [main, dev-v2]
   # No `branches` filter: a stacked PR (one whose base is another feature
   # branch) would otherwise get no checks at all, which reads as passing
   # rather than as skipped. See #200.
