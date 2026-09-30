@@ -56,7 +56,7 @@ import {
  * @returns {PetSteadyResult} set containing results for the model
  *
  * @example
- * const result = pet_steady(20, 20, 50, 0.15, 1.37, 0.5);
+ * const result = pet_steady(20, 20, 0.15, 50, 1.37, 0.5);
  * console.log(result); // {pet: 18.85}
  */
 const PET_STEADY_SCHEMA = {

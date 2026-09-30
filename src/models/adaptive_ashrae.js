@@ -57,7 +57,7 @@ import { get_ce } from "./adaptive_en.js";
  * Calculations with comply with the ASHRAE 55 2020 Standard {@link #ref_1|[1]}.
  *
  * @example
- * import { adaptive_ashrae } from "jsthermalcomfort/models";
+ * import { adaptive_ashrae } from "jsthermalcomfort";
  * const results = adaptive_ashrae(25, 25, 20, 0.1);
  * console.log(results);
  * // {tmp_cmf: 24.0, tmp_cmf_80_low: 20.5, tmp_cmf_80_up: 27.5,
@@ -67,7 +67,7 @@ import { get_ce } from "./adaptive_en.js";
  * // true
  *
  * @example
- * import { adaptive_ashrae } from "jsthermalcomfort/models";
+ * import { adaptive_ashrae } from "jsthermalcomfort";
  * // For users who want to use the IP system
  * const results = adaptive_ashrae(77, 77, 68, 0.3, 'IP');
  * console.log(results);
@@ -76,7 +76,7 @@ import { get_ce } from "./adaptive_en.js";
  * //  acceptability_90: true}
  *
  * @example
- * import { adaptive_ashrae } from "jsthermalcomfort/models";
+ * import { adaptive_ashrae } from "jsthermalcomfort";
  * const results = adaptive_ashrae(25, 25, 9, 0.1);
  * console.log(results);
  * // {tmp_cmf: NaN, tmp_cmf_80_low: NaN, ...}

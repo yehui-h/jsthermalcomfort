@@ -54,7 +54,7 @@ const optionDefaults = {
  * console.log(result); // -> {"wbgt": 27.1}
  *
  * @example
- * const result = wbgt(25, 32, { tdb: 20, with_solar_radiation: true });
+ * const result = wbgt(25, 32, { tdb: 20, with_solar_load: true });
  * console.log(result); // -> {"wbgt": 25.9}
  */
 const WBGT_SCHEMA = {

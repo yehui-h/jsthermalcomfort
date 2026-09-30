@@ -94,7 +94,7 @@ import { validateInputs, Standard } from "../utilities/utilities.js";
  * const clo_d = clo_dynamic(clo, met);
  *
  * const results = pmv(tdb, tr, v_r, rh, met, clo_d);
- * console.log(results); // 0.06
+ * console.log(results); // { pmv: 0.06 }
  */
 const PMV_SCHEMA = {
   tdb: { type: "number" },

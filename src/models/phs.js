@@ -102,7 +102,7 @@ const MET_WATT_PER_MET = 58.15;
  * @example
  * import { phs } from "jsthermalcomfort";
  * const results = phs(40, 40, 0.3, 33.85, 2.5, 0.5, "standing");
- * console.log(results); // {t_re: 37.5, d_lim_loss_50: 480, d_lim_loss_95: 480, d_lim_t_re: 480, sweat_loss_g: 5847.0, sweat_rate_watt: 252.1, ...}
+ * console.log(results); // {t_re: 37.5, d_lim_loss_50: 313, d_lim_loss_95: 313, d_lim_t_re: 480, sweat_loss_g: 5847.0, sweat_rate_watt: 252.1, ...}
  */
 const PHS_SCHEMA = {
   tdb: { type: "number" },

@@ -64,6 +64,7 @@ import { pmv } from "./pmv.js";
  * const v = 0.1;
  * const met = 1.4;
  * const clo = 0.5;
+ * const rh = 50;
  * // Calculate relative air speed
  * const v_r = v_relative(v, met);
  * // Calculate dynamic clothing

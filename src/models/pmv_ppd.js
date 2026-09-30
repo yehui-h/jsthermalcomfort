@@ -194,8 +194,8 @@ export const PMV_PPD_ISO_INFO = deepFreeze({
  * // Calculate dynamic clothing
  * const clo_d = clo_dynamic(clo, met);
  * const results = pmv_ppd(tdb, tr, v_r, rh, met, clo_d);
- * console.log(results); // Output: { pmv: 0.06, ppd: 5.1 }
- * console.log(results.pmv); // Output: -0.06
+ * console.log(results); // Output: { pmv: 0.06, ppd: 5.1, tsv: "Neutral" }
+ * console.log(results.pmv); // Output: 0.06
  */
 const PMV_PPD_SCHEMA = {
   tdb: { type: "number" },

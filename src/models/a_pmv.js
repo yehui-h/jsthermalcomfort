@@ -58,17 +58,17 @@ import { pmv } from "./pmv.js";
  * @returns {APmvResult} set containing results for the model
  *
  * @example
- * const tdb = 24,
- * const tr = 30,
- * const vr = 0.22,
- * const rh = 50,
- * const met = 1.4,
- * const clo = 0.5,
- * const a_coefficient = 0.293,
- * const wme = undefined,
+ * const tdb = 24;
+ * const tr = 30;
+ * const vr = 0.22;
+ * const rh = 50;
+ * const met = 1.4;
+ * const clo = 0.5;
+ * const a_coefficient = 0.293;
+ * const wme = 0;
  *
  * const result = a_pmv(tdb, tr, vr, rh, met, clo, a_coefficient, wme);
- * console.log(result) //output { a_pmv: 0.48 }
+ * console.log(result); // output { a_pmv: 0.48 }
  */
 const A_PMV_SCHEMA = {
   tdb: { type: "number" },

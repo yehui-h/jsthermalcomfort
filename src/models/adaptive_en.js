@@ -66,7 +66,7 @@ import {
  *
  * @example
  * const results = adaptive_en(25, 25, 9, 0.1);
- * console.log(results); // {tmp_cmf: NaN, acceptability_cat_i: true, acceptability_cat_ii: true, ... }
+ * console.log(results); // {tmp_cmf: NaN, acceptability_cat_i: false, acceptability_cat_ii: false, acceptability_cat_iii: false, tmp_cmf_cat_i_up: NaN, tmp_cmf_cat_ii_up: NaN, tmp_cmf_cat_iii_up: NaN, tmp_cmf_cat_i_low: NaN, tmp_cmf_cat_ii_low: NaN, tmp_cmf_cat_iii_low: NaN}
  * // The adaptive thermal comfort model can only be used
  * // if the running mean temperature is between 10 °C and 30 °C
  */

@@ -776,7 +776,7 @@ export function valid_range(range, [min, max]) {
  * @property {number} Seated_Cquiet - 1.0
  * @property {number} Reading_seated - 1.0
  * @property {number} Writing - 1.0
- * @property {number} Reading_seatedTyping - 1.1
+ * @property {number} Typing - 1.1
  * @property {number} Standing_relaxed - 1.2
  * @property {number} Filing_seated - 1.2
  * @property {number} Flying_aircraft_routine - 1.2
@@ -803,7 +803,7 @@ export function valid_range(range, [min, max]) {
  * @property {number} Basketball - 6.3
  * @property {number} Wrestling - 7.8
  * @example
- * import { met_typical_tasks } from "jsthermalcomfort/utilities"; //The path to utilities
+ * import { met_typical_tasks } from "jsthermalcomfort";
  * console.log(met_typical_tasks['Seated_Cquiet']);
  * // output 1.0
  */
@@ -848,7 +848,8 @@ export const met_typical_tasks = {
  * @docname Typical ensembles insulation, [clo]
  *
  * @param {"Walking shorts, short-sleeve shirt" | "Typical summer indoor clothing" |
- * "Knee-length skirt, short-sleeve shirt, sandals, underwear" | "Trousers, long-sleeve shirt" |
+ * "Knee-length skirt, short-sleeve shirt, sandals, underwear" |
+ * "Trousers, short-sleeve shirt, socks, shoes, underwear" | "Trousers, long-sleeve shirt" |
  * "Knee-length skirt, long-sleeve shirt, full slip" | "Sweat pants, long-sleeve sweatshirt" |
  * "Jacket, Trousers, long-sleeve shirt" | "Typical winter indoor clothing"} ensembles - Typical ensembles. One of:
  *   - "Walking shorts, short-sleeve shirt"
@@ -910,7 +911,7 @@ export function clo_typical_ensembles(ensembles) {
  * @property {number} Men_underwear - 0.04
  * @property {number} Knee_socks_thick - 0.06
  * @property {number} Short_shorts - 0.06
- * @property {number} Walking_shorts: 0.08,
+ * @property {number} Walking_shorts - 0.08
  * @property {number} T_shirt - 0.08
  * @property {number} Standard_office_chair - 0.1
  * @property {number} Executive_chair - 0.15
@@ -955,7 +956,7 @@ export function clo_typical_ensembles(ensembles) {
  * @property {number} Double_breasted_coat_thin - 0.42
  * @property {number} Double_breasted_coat_thick - 0.48
  * @example
- * import { clo_individual_garments } from "jsthermalcomfort/utilities"; //The path to utilities
+ * import { clo_individual_garments } from "jsthermalcomfort";
  * console.log(clo_individual_garments['Metal_chair']);
  * // output 0.0
  */

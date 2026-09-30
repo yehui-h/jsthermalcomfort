@@ -10,8 +10,8 @@ import { pmv } from "./pmv.js";
 /**
  * @public
  * @typedef {Object} AnkleDraftRet
- * @property {number} PPD_ad - redicted Percentage of Dissatisfied occupants with ankle draft, [%]
- * @property {boolean} Acceptability - The ASHRAE 55 2020 standard defines that the value of air speed at the ankle level is acceptable if PPD_ad is lower or equal than 20%
+ * @property {number} ppd_ad - redicted Percentage of Dissatisfied occupants with ankle draft, [%]
+ * @property {boolean} acceptability - The ASHRAE 55 2020 standard defines that the value of air speed at the ankle level is acceptable if ppd_ad is lower or equal than 20%
  */
 
 /**
@@ -49,11 +49,11 @@ import { pmv } from "./pmv.js";
  * @param {number} v_ankle - air speed at the 0.1 m (4 in.) above the floor, default in [m/s] in [fps] if
         `units` = 'IP'
  * @param {"IP"|"SI"} [units="SI"] - select the SI (International System of Units) or the IP (Imperial Units) system.     
- * @returns {AnkleDraftRet} - Returns {"PPD_ad": ppd_val, "Acceptability": acceptability}
+ * @returns {AnkleDraftRet} - Returns {"ppd_ad": ppd_val, "acceptability": acceptability}
  * 
  * @example
- * results = ankle_draft(25, 25, 0.2, 50, 1.2, 0.5, 0.3, "SI")
- * console.log(results) // expected result is {PPD_ad: 18.5, Acceptability: true}
+ * const results = ankle_draft(25, 25, 0.2, 50, 1.2, 0.5, 0.3, "SI");
+ * console.log(results); // expected result is {ppd_ad: 18.5, acceptability: true}
  * 
  */
 const ANKLE_DRAFT_SCHEMA = {
