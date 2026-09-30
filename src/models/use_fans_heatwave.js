@@ -94,10 +94,10 @@ import { two_nodes } from "../models/two_nodes.js";
     m_rsw: 14.6, 
     w: 0.1, 
     w_max: 0.7, 
-    heat_strain_blood_flow: 0.0, 
-    heat_strain_w: 0.0, 
-    heat_strain_sweating: 0.0, 
-    heat_strain: 0.0
+    heat_strain_blood_flow: false, 
+    heat_strain_w: false, 
+    heat_strain_sweating: false, 
+    heat_strain: false
     }
  *
  */

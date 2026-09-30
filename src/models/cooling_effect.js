@@ -50,11 +50,11 @@ import { set_tmp } from "./set_tmp.js";
  *
  * @example
  * const CE = cooling_effect(25, 25, 0.3, 50, 1.2, 0.5);
- * console.log(CE); // Output: {ce: 1.64}
+ * console.log(CE); // Output: {ce: 1.68}
  *
  * // For users who want to use the IP system
- * const CE_IP = cooling_effect(77, 77, 1.64, 50, 1, 0.6, "IP");
- * console.log(CE_IP); // Output: {ce: 3.74}
+ * const CE_IP = cooling_effect(77, 77, 1.64, 50, 1, 0.6, 0, "IP");
+ * console.log(CE_IP); // Output: {ce: 3.95}
  */
 const COOLING_EFFECT_SCHEMA = {
   tdb: { type: "number" },
