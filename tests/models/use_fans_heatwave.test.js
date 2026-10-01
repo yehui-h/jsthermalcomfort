@@ -123,6 +123,48 @@ describe("use_fans_heatwaves input validation", () => {
     ).toThrow(TypeError);
   });
 
+  test("round false returns snake_case fields and drops comfort indices", () => {
+    const result = use_fans_heatwaves(
+      25,
+      25,
+      0.1,
+      50,
+      1.2,
+      0.5,
+      0,
+      undefined,
+      undefined,
+      "standing",
+      "SI",
+      80,
+      { round: false, limit_inputs: false },
+    );
+
+    expect(Object.keys(result)).toEqual([
+      "e_skin",
+      "e_rsw",
+      "e_max",
+      "q_sensible",
+      "q_skin",
+      "q_res",
+      "t_core",
+      "t_skin",
+      "m_bl",
+      "m_rsw",
+      "w",
+      "w_max",
+      "heat_strain_blood_flow",
+      "heat_strain_w",
+      "heat_strain_sweating",
+      "heat_strain",
+    ]);
+    expect(result).not.toHaveProperty("pmvGagge");
+    expect(result).not.toHaveProperty("pmv_gagge");
+    expect(result).not.toHaveProperty("set");
+    expect(typeof result.e_skin).toBe("number");
+    expect(typeof result.heat_strain).toBe("boolean");
+  });
+
   test("throws TypeError if kwargs.limit_inputs is not a boolean", () => {
     expect(() =>
       use_fans_heatwaves(

@@ -65,28 +65,7 @@ describe("two_nodes related tests", () => {
       mergedKwargs,
     );
 
-    const actualOutputs = {
-      disc: result.disc,
-      t_core: result.tCore,
-      e_skin: result.eSkin,
-      e_rsw: result.eRsw,
-      e_max: result.eMax,
-      q_sensible: result.qSensible,
-      q_skin: result.qSkin,
-      q_res: result.qRes,
-      t_skin: result.tSkin,
-      m_bl: result.mBl,
-      m_rsw: result.mRsw,
-      w: result.w,
-      w_max: result.wMax,
-      set: result.set,
-      et: result.et,
-      pmv_gagge: result.pmvGagge,
-      pmv_set: result.pmvSet,
-      t_sens: result.tSens,
-    };
-
-    validateResult(actualOutputs, outputs, tolerances, inputs);
+    validateResult(result, outputs, tolerances, inputs);
   });
 });
 
@@ -138,6 +117,38 @@ describe("two_nodes input validation", () => {
 
   test("does not throw when kwargs.w_max is not provided", () => {
     expect(() => two_nodes(25, 25, 0.3, 50, 1.2, 0.5)).not.toThrow();
+  });
+
+  test("returns the same snake_case keys whether or not results are rounded", () => {
+    const args = [25, 25, 0.3, 50, 1.2, 0.5, 0, 1.8258, 101325, "standing", 90];
+    const rounded = two_nodes(...args, { round: true });
+    const unrounded = two_nodes(...args, { round: false });
+    const documentedKeys = [
+      "e_skin",
+      "e_rsw",
+      "e_max",
+      "q_sensible",
+      "q_skin",
+      "q_res",
+      "t_core",
+      "t_skin",
+      "m_bl",
+      "m_rsw",
+      "w",
+      "w_max",
+      "set",
+      "et",
+      "pmv_gagge",
+      "pmv_set",
+      "disc",
+      "t_sens",
+    ];
+
+    expect(Object.keys(rounded)).toEqual(documentedKeys);
+    expect(Object.keys(unrounded)).toEqual(documentedKeys);
+    expect(unrounded).not.toHaveProperty("eSkin");
+    expect(unrounded).not.toHaveProperty("pmvGagge");
+    expect(unrounded).not.toHaveProperty("tSens");
   });
 });
 
