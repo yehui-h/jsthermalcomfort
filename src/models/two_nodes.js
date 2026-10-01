@@ -63,8 +63,6 @@ import { round, validateInputs } from "../utilities/utilities.js";
  *  - The Standard Effective Temperature (SET)
  *  - The New Effective Temperature (ET)
  *  - The Predicted Thermal Sensation (TSENS)
- *  - The Predicted Percent Dissatisfied Due to Draft (PD)
- *  - Predicted Percent Satisfied With the Level of Air Movement” (PS)
  * 
  * @public
  * @memberof models
@@ -210,29 +208,34 @@ export function two_nodes(
     joint_kwargs,
   );
 
+  const output = {
+    e_skin: result.eSkin,
+    e_rsw: result.eRsw,
+    e_max: result.eMax,
+    q_sensible: result.qSensible,
+    q_skin: result.qSkin,
+    q_res: result.qRes,
+    t_core: result.tCore,
+    t_skin: result.tSkin,
+    m_bl: result.mBl,
+    m_rsw: result.mRsw,
+    w: result.w,
+    w_max: result.wMax,
+    set: result.set,
+    et: result.et,
+    pmv_gagge: result.pmvGagge,
+    pmv_set: result.pmvSet,
+    disc: result.disc,
+    t_sens: result.tSens,
+  };
+
   if (joint_kwargs.round) {
-    return {
-      e_skin: round(result.eSkin, 1),
-      e_rsw: round(result.eRsw, 1),
-      e_max: round(result.eMax, 1),
-      q_sensible: round(result.qSensible, 1),
-      q_skin: round(result.qSkin, 1),
-      q_res: round(result.qRes, 1),
-      t_core: round(result.tCore, 1),
-      t_skin: round(result.tSkin, 1),
-      m_bl: round(result.mBl, 1),
-      m_rsw: round(result.mRsw, 1),
-      w: round(result.w, 1),
-      w_max: round(result.wMax, 1),
-      set: round(result.set, 1),
-      et: round(result.et, 1),
-      pmv_gagge: round(result.pmvGagge, 1),
-      pmv_set: round(result.pmvSet, 1),
-      disc: round(result.disc, 1),
-      t_sens: round(result.tSens, 1),
-    };
+    for (const key of Object.keys(output)) {
+      output[key] = round(output[key], 1);
+    }
   }
-  return result;
+
+  return output;
 }
 
 const kClo = 0.25;
@@ -466,19 +469,6 @@ function calculate_pmv_set(
 }
 
 /**
- * Calculate Predicted  Percent  Satisfied  With  the  Level  of  Air  Movement
- *
- * @param {number} tOp operative temperature
- * @param {number} v Air speed, default in [m/s]
- * @returns {number} predicted percent satisfied
- */
-function calculate_percent_satisfied(tOp, v) {
-  return (
-    100 * (1.13 * Math.sqrt(tOp) - 0.24 * tOp + 2.7 * Math.sqrt(v) - 0.99 * v)
-  );
-}
-
-/**
  * @param {number} tdb Dry bulb air temperature, default in [°C] in [°F] if `units` = 'IP'.
  * @param {number} tr Mean radiant temperature, default in [°C]
  * @param {number} v Air speed, default in [m/s]
@@ -702,7 +692,6 @@ function calculate_two_nodes(
     cRes,
     qRes,
   );
-  const ps = calculate_percent_satisfied(tOp, v);
 
   return {
     set,
