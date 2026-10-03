@@ -192,7 +192,7 @@ export function solar_gain(
  *
  * @returns {number}
  */
-export function find_span(arr, x) {
+function find_span(arr, x) {
   let left = 0;
   let right = arr.length - 1;
   while (left <= right) {
