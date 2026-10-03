@@ -165,7 +165,7 @@ export function cooling_effect(
 // Brent's method is a hybrid root-finding algorithm that combines the
 // faster/less-reliable inverse quadradic interpolation and secant methods with
 // the slower/more-reliable bisection method.
-export function brent(
+function brent(
   f,
   lowerBound,
   upperBound,
