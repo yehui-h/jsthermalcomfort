@@ -127,7 +127,7 @@ export class JOS3 {
    * @param {number} [ci] - Cardiac index, in [L/min/m2].
    * @param {"harris-benedict" | "harris-benedict_origin" | "japanese" | "ganpule"} [bmr_equation] - The equation used
    * to calculate basal metabolic rate (BMR).
-   * @param {"dubois" | "fujimoto" | "kruazumi" | "takahira"} [bsa_equation] - The equation used to calculate body
+   * @param {"dubois" | "fujimoto" | "kurazumi" | "takahira"} [bsa_equation] - The equation used to calculate body
    * surface area (bsa).
    * @param {[] | "all"} [ex_output] - This is used when you want to display results other than the default output
    * parameters (ex.skin temperature); by default, JOS outputs only the most necessary parameters in order to reduce
