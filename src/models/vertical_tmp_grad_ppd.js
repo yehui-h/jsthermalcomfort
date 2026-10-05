@@ -8,10 +8,10 @@ import {
 } from "../utilities/utilities.js";
 
 /**
- * @typedef {Object} VerTmpGradReturnType - a result set containing the predicted precentage of dissatisfied and the acceptability
+ * @typedef {Object} VerTmpGradReturnType - a result set containing the predicted percentage of dissatisfied and the acceptability
  * @property {number} ppd_vg Predicted Percentage of Dissatisfied occupants with vertical temperature gradient, [%]
- * @property {boolean} acceptability The ASHRAE 55 2020 standard defines that the value of air speed at the ankle level
- * is acceptable if PPD_ad is lower or equal than 5 %
+ * @property {boolean} acceptability The vertical air temperature gradient between head and feet
+ * is acceptable when ppd_vg is lower than or equal to 5%
  * @public
  */
 
@@ -45,7 +45,7 @@ import {
  * @param {number} vertical_tmp_grad vertical temperature gradient between the feet and the head, default in [°C/m] in [°F/ft] if units = ‘IP’
  * @param {"SI" | "IP"} [units="SI"] - select the SI (International System of Units) or the IP (Imperial Units) system.
  *
- * @returns {VerTmpGradReturnType} Object with results of the PPD with vertical temprature gradient.
+ * @returns {VerTmpGradReturnType} Object with results of the PPD with vertical temperature gradient.
  *
  * @example
  * const result = vertical_tmp_grad_ppd(25, 25, 0.1, 50, 1.2, 0.5, 7); // returns {'ppd_vg': 12.6, 'acceptability': false}
