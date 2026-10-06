@@ -54,7 +54,7 @@ const stress_categories = [
  * @param {boolean} limit_inputs - default True. By default, if the inputs are outsude the standard applicability limits the
         function returns nan. If False returns UTCI values even if input values are
         outside the applicability limits of the model. The valid input ranges are
-        -50 < tdb [°C] < 50, tdb - 70 < tr [°C] < tdb + 30, and for 0.5 < v [m/s] < 17.0.
+        -50 < tdb [°C] < 50, tdb - 30 < tr [°C] < tdb + 70, and for 0.5 < v [m/s] < 17.0.
  * @example
  * console.log(utci(25, 25, 1.0, 50)) // will print 24.6
  * console.log(utci(77, 77, 3.28, 50, 'ip')) // will print 76.4
