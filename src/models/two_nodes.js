@@ -247,20 +247,6 @@ const tempCoreNeutral = 36.8;
 const skinBloodFlowNeutral = 6.3;
 
 /**
- * Round all elments in a given array to the given precision.
- *
- * @param {number[]} array - the array to round
- * @param {number} precision - the number of decimal places to round to
- * @returns the rounded result
- */
-export function roundArray(array, precision) {
-  for (let index = 0; index < array.length; ++index) {
-    array[index] = round(array[index], precision);
-  }
-  return array;
-}
-
-/**
  * Calculate vapor pressure based on air temperature and relative humidity.
  *
  * @param {number} tdb - air temperature [C]
