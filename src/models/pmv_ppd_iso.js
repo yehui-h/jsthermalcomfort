@@ -12,7 +12,8 @@ import { validateInputs, Standard } from "../utilities/utilities.js";
 /**
  * Calculate PMV and PPD in accordance with ISO 7730.
  *
- * Delegates to {@link pmv_ppd} with the standard fixed to `'ISO'`.
+ * Delegates to {@link pmv_ppd}, forwarding the `model` argument
+ * (`"7730-2025"` or `"7730-2005"`).
  * The ISO equation uses Fanger's original PMV formulation without the
  * ASHRAE cooling-effect adjustment.
  *

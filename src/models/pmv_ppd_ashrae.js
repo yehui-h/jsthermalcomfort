@@ -12,7 +12,8 @@ import { validateInputs, Standard } from "../utilities/utilities.js";
 /**
  * Calculate PMV and PPD in accordance with ASHRAE 55.
  *
- * Delegates to {@link pmv_ppd} with the standard fixed to `'ASHRAE'`.
+ * Delegates to {@link pmv_ppd}, forwarding `Standard.ashrae_55_2023`
+ * (`"55-2023"`).
  * The ASHRAE equation applies a cooling effect (via SET) before computing
  * PMV — this lowers the result compared to the raw ISO equation when
  * elevated air speed is present.
