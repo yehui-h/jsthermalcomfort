@@ -57,7 +57,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "mathjs": "^15.2.0",
-    "node-fetch": "^3.3.2"
+    "mathjs": "^15.2.0"
   }
 }
