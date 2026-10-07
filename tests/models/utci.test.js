@@ -91,6 +91,37 @@ describe("utci() stress_category with invalid inputs (Issue #147)", () => {
   });
 });
 
+describe("utci() mean radiant temperature applicability window", () => {
+  // Bröde et al. and the runtime gate accept -30 <= (tr - tdb) <= 70.
+  // The public JSDoc used to state the reversed window, tdb - 70 < tr < tdb + 30.
+  const tdb = 20;
+  const v = 1;
+  const rh = 50;
+
+  test.each([
+    ["lower edge tr = tdb - 30", tdb - 30],
+    ["upper edge tr = tdb + 70", tdb + 70],
+    [
+      "inside the model window and outside the old docstring (tr = tdb + 50)",
+      tdb + 50,
+    ],
+  ])("%s returns a finite UTCI", (_label, tr) => {
+    expect(utci(tdb, tr, v, rh).utci).not.toBeNaN();
+  });
+
+  test.each([
+    ["just below tr = tdb - 30", tdb - 30 - 0.1],
+    ["just above tr = tdb + 70", tdb + 70 + 0.1],
+    ["old docstring lower edge tr = tdb - 70", tdb - 70],
+  ])("%s returns NaN when limit_inputs is true", (_label, tr) => {
+    expect(utci(tdb, tr, v, rh).utci).toBeNaN();
+  });
+
+  test("limit_inputs false still evaluates tr = tdb - 70", () => {
+    expect(utci(tdb, tdb - 70, v, rh, "SI", false, false).utci).not.toBeNaN();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Input validation tests
 // ---------------------------------------------------------------------------
