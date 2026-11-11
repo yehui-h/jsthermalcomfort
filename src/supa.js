@@ -70,15 +70,3 @@ export function $lerp(length, min, max) {
 export function $sum(array) {
   return array.reduce((t, c) => t + c, 0);
 }
-
-export function $max(array, sentinel) {
-  return array.map((array) => (array < sentinel ? sentinel : array));
-}
-
-export function $min(array, sentinel) {
-  return array.map((array) => (array > sentinel ? sentinel : array));
-}
-
-export function $index(array, indicies) {
-  return array.filter((_, i) => indicies.includes(i));
-}
