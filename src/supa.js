@@ -15,6 +15,10 @@ export function $lerp(length, min, max) {
     .map((x, i) => x + i * ((max - min) / (length - 1)));
 }
 
+export function $sum(array) {
+  return array.reduce((t, c) => t + c, 0);
+}
+
 export function $max(array, sentinel) {
   return array.map((array) => (array < sentinel ? sentinel : array));
 }
