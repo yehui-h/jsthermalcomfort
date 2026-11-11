@@ -192,21 +192,52 @@ Please ensure all tests pass and your code is correctly formatted before submitt
 
 ## How to publish a new version of jsthermalcomfort
 
-Releases are published from Git tags by GitHub Actions. Local builds are not required for publishing.
+Releases are published by GitHub Actions when a `v*` git tag is pushed (`.github/workflows/publish.yml`). Merging a pull request publishes nothing. The workflow has no branch filter: a tag points at a commit, so a release can be cut from `main` or from `development`.
 
-1. Ensure your branch is merged to `main` and CI is green.
-2. Bump the package version with npm:
-   - Patch release: `npm version patch`
-   - Minor release: `npm version minor`
-   - Major release: `npm version major`
-   - Exact version: `npm version 1.2.3`
-3. Push the commit and tags:
-   ```bash
-   git push && git push --tags
-   ```
-4. Pushing a `v*` tag (for example `v1.0.3`) triggers the publish workflow.
+The tag must be `v` plus the `package.json` version, or the checks job fails. The npm dist-tag comes from that version:
 
-The publish workflow runs checks (`npm run check:format`, `npm test`, `npm run build`) and then automatically:
+- A version with a hyphen (for example `2.0.0-next.1`, tag `v2.0.0-next.1`) is a semver prerelease. It is published under the `next` dist-tag, and the GitHub Release is marked as a prerelease.
+- A version with no hyphen (for example `2.0.0`, tag `v2.0.0`) is published under the `latest` dist-tag.
 
-- Runs `npm publish` to publish the package to the NPM registry.
-- Creates a new GitHub Release with automatically generated release notes based on merged PRs.
+`npm publish` writes `latest` unless it is given `--tag`. The workflow passes `--tag next` only when the tag name contains a hyphen.
+
+Use `npm version <version> --no-git-tag-version`, commit that bump, then create and push the one tag that should publish. Plain `npm version` (`patch`, `minor`, `major`, or an exact version) creates a git tag during the bump, and `git push --tags` pushes every local tag. Each new `v*` tag publishes.
+
+### Prerelease from development
+
+Work on `development` is published as a prerelease. Keep a hyphen in the version (`2.0.0-next.1`, then `next.2`, and so on) so the package stays on `next`.
+
+```bash
+npm version 2.0.0-next.1 --no-git-tag-version
+git commit -am "2.0.0-next.1" && git push
+git tag v2.0.0-next.1 && git push origin v2.0.0-next.1
+```
+
+Consumers opt in with the `next` dist-tag:
+
+```bash
+npm install jsthermalcomfort@next
+```
+
+Installs that use a `^1.x` range stay on the `latest` release.
+
+### Final release as latest
+
+Tag a version with no hyphen only after `development` has merged into `main`, so `latest` and the default branch describe the same release. Do not tag a final version (no hyphen) from `development` while it is still work in progress. Without a hyphen it publishes as `latest`.
+
+```bash
+npm version 2.0.0 --no-git-tag-version
+git commit -am "2.0.0" && git push
+git tag v2.0.0 && git push origin v2.0.0
+```
+
+The same three steps apply to a patch or minor on `main` (for example `1.4.1` or `1.5.0`) when that commit is the release that should be `latest`.
+
+### What the workflow runs
+
+Pushing the tag runs `.github/workflows/publish.yml`:
+
+1. `npm ci`, then `npm run check:format`, `npm test`, and `npm run build`.
+2. Fails the build when the tag is not exactly `v` plus the `package.json` version.
+3. When the tag contains a hyphen, publishes with `npm publish --provenance --tag next`. When the tag has no hyphen, publishes with `npm publish --provenance --tag latest`.
+4. Opens a GitHub Release with notes generated from merged pull requests. Hyphenated tags are marked as a prerelease.
