@@ -7,7 +7,7 @@ import tseslint from "typescript-eslint";
 // `npm run lint`, so they cover the same files (ADR 0020).
 export const UNLINTED = [
   // Deferred and still JavaScript (ADR 0018): JOS3, jos3_functions, and
-  // supa.js, which only jos3_functions imports, with their tests.
+  // supa.js, which the thermoregulation tests import, with their tests.
   "src/models/JOS3.js",
   "src/jos3_functions/",
   "src/supa.js",
