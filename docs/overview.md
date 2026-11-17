@@ -29,7 +29,7 @@ npm install jsthermalcomfort
 ## Requirements
 
 - Node.js (for server-side usage) or a modern web browser.
-- No external dependencies are required for core functionality.
+- `mathjs` is the runtime dependency and is installed with the package.
 
 ## Quick Start
 
